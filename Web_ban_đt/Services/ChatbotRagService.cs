@@ -41,7 +41,7 @@ namespace TechStoreWeb.Services
             var queryTerms = Tokenize(query).ToList();
             var queryNorm = Normalize(query);
 
-            var results = chunks
+            var ranked = chunks
                 .Select(chunk => new RetrievedChatChunk
                 {
                     Chunk = chunk,
@@ -50,22 +50,65 @@ namespace TechStoreWeb.Services
                 .Where(result => result.Score > 0)
                 .OrderByDescending(result => result.Score)
                 .ThenBy(result => result.Chunk.Kind)
-                .Take(Math.Max(1, limit))
                 .ToList();
+
+            var results = DiversifyByBrand(ranked, Math.Max(1, limit));
 
             // Khách nêu ngân sách nhưng câu hỏi quá chung chung nên không khớp từ khoá nào:
             // vẫn gợi ý được máy trong tầm giá thay vì trả về rỗng.
             if (results.Count == 0 && (budgetMin.HasValue || budgetMax.HasValue))
             {
-                results = chunks
+                var withinBudget = chunks
                     .Where(chunk => chunk.Kind == ChatChunkKind.ProductSpecs && IsWithinBudget(chunk.Price, budgetMin, budgetMax))
                     .OrderByDescending(chunk => chunk.Price)
-                    .Take(Math.Max(1, limit))
                     .Select(chunk => new RetrievedChatChunk { Chunk = chunk, Score = 1 })
                     .ToList();
+
+                results = DiversifyByBrand(withinBudget, Math.Max(1, limit));
             }
 
             return results;
+        }
+
+        /// <summary>
+        /// Câu hỏi kiểu "liệt kê máy dưới 8tr" không khớp từ khoá nào nên mọi máy trong tầm giá
+        /// đều cùng điểm. LINQ sắp xếp ổn định nên khi hoà điểm thứ tự gốc (ProductId) được giữ,
+        /// khiến Take(n) chỉ lấy trúng hãng nằm đầu bảng. Xoay vòng theo hãng trong từng nhóm
+        /// cùng điểm để khách thấy đủ lựa chọn, đồng thời không phá thứ tự giữa các mức điểm khác nhau.
+        /// </summary>
+        private static List<RetrievedChatChunk> DiversifyByBrand(IReadOnlyList<RetrievedChatChunk> ranked, int limit)
+        {
+            var results = new List<RetrievedChatChunk>(Math.Min(limit, ranked.Count));
+
+            foreach (var band in ranked.GroupBy(result => Math.Round(result.Score, 2)))
+            {
+                foreach (var result in RoundRobinByBrand(band))
+                {
+                    results.Add(result);
+                    if (results.Count >= limit)
+                    {
+                        return results;
+                    }
+                }
+            }
+
+            return results;
+        }
+
+        private static IEnumerable<RetrievedChatChunk> RoundRobinByBrand(IEnumerable<RetrievedChatChunk> band)
+        {
+            var byBrand = band
+                .GroupBy(result => result.Chunk.Brand ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                .Select(group => new Queue<RetrievedChatChunk>(group))
+                .ToList();
+
+            while (byBrand.Any(queue => queue.Count > 0))
+            {
+                foreach (var queue in byBrand.Where(queue => queue.Count > 0))
+                {
+                    yield return queue.Dequeue();
+                }
+            }
         }
 
         private static bool IsWithinBudget(decimal? price, decimal? budgetMin, decimal? budgetMax)

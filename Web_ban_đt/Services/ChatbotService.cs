@@ -224,10 +224,11 @@ namespace TechStoreWeb.Services
 
         private static void UpdateMemory(ChatCustomerMemory memory, string message, IReadOnlyList<RetrievedChatChunk> retrieved)
         {
+            // Chỉ ghi nhớ hãng do chính khách nhắc tới. Trước đây danh sách này gộp thêm hãng của
+            // kết quả vừa truy xuất, nên một hãng lỡ xuất hiện sẽ bám vĩnh viễn vào bộ nhớ, được
+            // nối vào truy vấn lượt sau và tự cộng điểm cho chính nó - khách bị khoá vào một hãng.
             var brands = new[] { "iPhone", "Samsung", "Xiaomi", "Oppo", "Honor", "Huawei", "Nokia", "Tecno" }
                 .Where(brand => ContainsIgnoreAccent(message, brand))
-                .Concat(retrieved.Select(r => r.Chunk.Brand).Where(brand => !string.IsNullOrWhiteSpace(brand)))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Take(6);
 
             memory.PreferredBrands = MergeList(memory.PreferredBrands, brands);
