@@ -35,8 +35,13 @@ namespace TechStoreWeb.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Add(int productId, int? variantId, int qty = 1, bool isBuyNow = false)
+        // Nut "Mua ngay" va nut gio hang cung post ve day, phan biet nhau bang truong "action"
+        // (xem Views/Home/Detail.cshtml). Tham so cu ten 'isBuyNow' khong khop ten truong nen
+        // luon nhan false, khien "Mua ngay" chi them vao gio roi quay lai trang san pham.
+        public IActionResult Add(int productId, int? variantId, int qty = 1, string? action = null)
         {
+            var isBuyNow = string.Equals(action, "buy", StringComparison.OrdinalIgnoreCase);
+
             if (qty < 1) qty = 1;
 
             // Tên, giá và ảnh đều tra từ DB — không nhận từ client.
@@ -109,7 +114,17 @@ namespace TechStoreWeb.Controllers
 
             if (IsAjax())
             {
-                return Json(new { success = true, message = "Đã thêm vào giỏ hàng" });
+                return Json(new
+                {
+                    success = true,
+                    message = isBuyNow ? "Đang chuyển tới trang thanh toán" : "Đã thêm vào giỏ hàng",
+                    redirectUrl = isBuyNow ? Url.Action("Checkout") : null
+                });
+            }
+
+            if (isBuyNow)
+            {
+                return RedirectToAction("Checkout");
             }
 
             return Redirect(Request.Headers["Referer"].ToString() ?? "/");

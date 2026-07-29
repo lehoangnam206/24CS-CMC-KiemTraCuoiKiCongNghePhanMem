@@ -596,10 +596,10 @@
                     const inputs = form.querySelectorAll('input[name]');
                     inputs.forEach(inp => params.append(inp.name, inp.value));
                     
-                    if (isBuy) {
-                        params.append('isBuyNow', 'true');
-                    }
-                    
+                    // Gia tri cua nut bam khong nam trong input[name] nen phai gui tay,
+                    // dung ten 'action' giong luc form post thuong de server xu ly nhu nhau.
+                    params.append('action', isBuy ? 'buy' : 'cart');
+
                     try {
                         const response = await fetch(form.action, {
                             method: 'POST',
@@ -621,7 +621,7 @@
 
                             if (result.success) {
                                 if (isBuy) {
-                                    window.location.href = '/Cart/Checkout';
+                                    window.location.href = result.redirectUrl || '/Cart/Checkout';
                                 } else {
                                     const badge = document.querySelector('.cart-badge');
                                     if (badge) {
