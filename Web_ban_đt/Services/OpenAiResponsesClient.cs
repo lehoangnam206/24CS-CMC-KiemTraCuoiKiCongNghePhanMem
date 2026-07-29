@@ -26,10 +26,23 @@ namespace TechStoreWeb.Services
             }
 
             var endpoint = ResolveEndpoint(_options.ApiUrl);
-            var useChatCompletions = endpoint.Contains("/chat/completions", StringComparison.OrdinalIgnoreCase);
-            var request = useChatCompletions
-                ? CreateChatCompletionsRequest(systemPrompt, userPrompt)
-                : CreateResponsesRequest(systemPrompt, userPrompt);
+            var isGoogleApi = endpoint.Contains("generateContent", StringComparison.OrdinalIgnoreCase) ||
+                             _options.ApiUrl.Contains("google", StringComparison.OrdinalIgnoreCase);
+            var isChatCompletions = endpoint.Contains("/chat/completions", StringComparison.OrdinalIgnoreCase);
+
+            object request;
+            if (isGoogleApi)
+            {
+                request = CreateGoogleRequest(systemPrompt, userPrompt);
+            }
+            else if (isChatCompletions)
+            {
+                request = CreateChatCompletionsRequest(systemPrompt, userPrompt);
+            }
+            else
+            {
+                request = CreateResponsesRequest(systemPrompt, userPrompt);
+            }
 
             using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint);
             httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
@@ -48,7 +61,9 @@ namespace TechStoreWeb.Services
                     return new LlmClientResult { Text = null, IsServiceUnavailable = isServiceUnavailable };
                 }
 
-                var text = useChatCompletions ? ExtractChatCompletionsText(body) : ExtractResponsesText(body);
+                var text = isGoogleApi ? ExtractGoogleText(body) :
+                          isChatCompletions ? ExtractChatCompletionsText(body) :
+                          ExtractResponsesText(body);
                 return new LlmClientResult { Text = text, IsServiceUnavailable = false };
             }
             catch (Exception ex)
@@ -85,6 +100,22 @@ namespace TechStoreWeb.Services
             }
 
             return false;
+        }
+
+        private object CreateGoogleRequest(string systemPrompt, string userPrompt)
+        {
+            return new
+            {
+                contents = new object[]
+                {
+                    new { role = "user", parts = new object[] { new { text = systemPrompt + "\n\n" + userPrompt } } }
+                },
+                generationConfig = new
+                {
+                    temperature = 0.3,
+                    maxOutputTokens = 1024
+                }
+            };
         }
 
         private object CreateChatCompletionsRequest(string systemPrompt, string userPrompt)
@@ -131,6 +162,43 @@ namespace TechStoreWeb.Services
             }
 
             return apiUrl;
+        }
+
+        private static string? ExtractGoogleText(string json)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(json);
+                if (!document.RootElement.TryGetProperty("candidates", out var candidates) ||
+                    candidates.ValueKind != JsonValueKind.Array)
+                {
+                    return null;
+                }
+
+                var first = candidates.EnumerateArray().FirstOrDefault();
+                if (first.ValueKind == JsonValueKind.Undefined)
+                {
+                    return null;
+                }
+
+                if (first.TryGetProperty("content", out var content) &&
+                    content.TryGetProperty("parts", out var parts) &&
+                    parts.ValueKind == JsonValueKind.Array)
+                {
+                    var firstPart = parts.EnumerateArray().FirstOrDefault();
+                    if (firstPart.ValueKind != JsonValueKind.Undefined &&
+                        firstPart.TryGetProperty("text", out var text))
+                    {
+                        return text.GetString();
+                    }
+                }
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static string? ExtractChatCompletionsText(string json)

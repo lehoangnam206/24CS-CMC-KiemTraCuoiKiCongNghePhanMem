@@ -7,5 +7,6 @@ namespace TechStoreWeb.Services
         public string? ApiKey { get; set; }
         public string ApiUrl { get; set; } = "https://api.yescale.io/v1/chat/completions";
         public int MaxRetrievedChunks { get; set; } = 8;
+        public string? ApiVersion { get; set; } = "v1";
     }
 }
