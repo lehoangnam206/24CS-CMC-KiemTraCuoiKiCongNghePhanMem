@@ -18,11 +18,11 @@ namespace TechStoreWeb.Services
             _logger = logger;
         }
 
-        public async Task<string?> CompleteAsync(string systemPrompt, string userPrompt, CancellationToken cancellationToken)
+        public async Task<LlmClientResult> CompleteAsync(string systemPrompt, string userPrompt, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(_options.ApiKey))
             {
-                return null;
+                return new LlmClientResult { Text = null, IsServiceUnavailable = false };
             }
 
             var endpoint = ResolveEndpoint(_options.ApiUrl);
@@ -42,17 +42,49 @@ namespace TechStoreWeb.Services
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning("LLM provider returned {StatusCode}: {Body}", response.StatusCode, body);
-                    return null;
+                    var isServiceUnavailable = IsServiceUnavailableError(response.StatusCode, body);
+                    _logger.LogWarning("LLM provider returned {StatusCode}: {Body}. ServiceUnavailable={IsServiceUnavailable}",
+                        response.StatusCode, body, isServiceUnavailable);
+                    return new LlmClientResult { Text = null, IsServiceUnavailable = isServiceUnavailable };
                 }
 
-                return useChatCompletions ? ExtractChatCompletionsText(body) : ExtractResponsesText(body);
+                var text = useChatCompletions ? ExtractChatCompletionsText(body) : ExtractResponsesText(body);
+                return new LlmClientResult { Text = text, IsServiceUnavailable = false };
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Cannot call LLM provider.");
-                return null;
+                return new LlmClientResult { Text = null, IsServiceUnavailable = true };
             }
+        }
+
+        private static bool IsServiceUnavailableError(System.Net.HttpStatusCode statusCode, string body)
+        {
+            if ((int)statusCode >= 500 || statusCode == System.Net.HttpStatusCode.TooManyRequests ||
+                statusCode == System.Net.HttpStatusCode.RequestTimeout)
+            {
+                return true;
+            }
+
+            if ((int)statusCode == 429)
+            {
+                return true;
+            }
+
+            if (body.Contains("token", StringComparison.OrdinalIgnoreCase) &&
+                (body.Contains("limit", StringComparison.OrdinalIgnoreCase) ||
+                 body.Contains("exceeded", StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+
+            if (body.Contains("rate_limit", StringComparison.OrdinalIgnoreCase) ||
+                body.Contains("quota", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return false;
         }
 
         private object CreateChatCompletionsRequest(string systemPrompt, string userPrompt)

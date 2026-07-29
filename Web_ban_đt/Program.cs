@@ -30,7 +30,7 @@ builder.Services.AddSession(options =>
 });
 
 // Cấu hình Authentication (Cookie + Facebook OAuth)
-builder.Services.AddAuthentication(options =>
+var authBuilder = builder.Services.AddAuthentication(options =>
 {
     options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
@@ -40,31 +40,46 @@ builder.Services.AddAuthentication(options =>
     options.LoginPath = "/Account/Login";
     options.Cookie.Name = "TechStore.ExternalAuth";
     options.Cookie.HttpOnly = true;
-})
-.AddFacebook(options =>
-{
-    options.AppId = builder.Configuration["Authentication:Facebook:AppId"]!;
-    options.AppSecret = builder.Configuration["Authentication:Facebook:AppSecret"]!;
-    // Xóa scope 'email' mặc định vì Facebook App chưa được duyệt quyền này
-    options.Scope.Clear();
-    options.Scope.Add("public_profile");
-    options.Fields.Add("name");
-    options.SaveTokens = true;
-    options.Events = new Microsoft.AspNetCore.Authentication.OAuth.OAuthEvents
-    {
-        OnRedirectToAuthorizationEndpoint = context =>
-        {
-            context.Response.Redirect(context.RedirectUri + "&auth_type=reauthenticate");
-            return Task.CompletedTask;
-        }
-    };
-})
-.AddGoogle(options =>
-{
-    options.ClientId = builder.Configuration["Authentication:Google:ClientId"]!;
-    options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]!;
-    options.SaveTokens = true;
 });
+
+// Chỉ đăng ký đăng nhập mạng xã hội khi đã có khoá thật.
+// Nếu đăng ký với chuỗi rỗng, ASP.NET Core sẽ ném lỗi và app không khởi động được.
+var facebookAppId = builder.Configuration["Authentication:Facebook:AppId"];
+var facebookAppSecret = builder.Configuration["Authentication:Facebook:AppSecret"];
+var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
+var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+
+if (!string.IsNullOrWhiteSpace(facebookAppId) && !string.IsNullOrWhiteSpace(facebookAppSecret))
+{
+    authBuilder.AddFacebook(options =>
+    {
+        options.AppId = facebookAppId;
+        options.AppSecret = facebookAppSecret;
+        // Xóa scope 'email' mặc định vì Facebook App chưa được duyệt quyền này
+        options.Scope.Clear();
+        options.Scope.Add("public_profile");
+        options.Fields.Add("name");
+        options.SaveTokens = true;
+        options.Events = new Microsoft.AspNetCore.Authentication.OAuth.OAuthEvents
+        {
+            OnRedirectToAuthorizationEndpoint = context =>
+            {
+                context.Response.Redirect(context.RedirectUri + "&auth_type=reauthenticate");
+                return Task.CompletedTask;
+            }
+        };
+    });
+}
+
+if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret))
+{
+    authBuilder.AddGoogle(options =>
+    {
+        options.ClientId = googleClientId;
+        options.ClientSecret = googleClientSecret;
+        options.SaveTokens = true;
+    });
+}
 
 // 2. Cấu hình kết nối Database bằng Entity Framework Core
 builder.Services.AddDbContext<AppDbContext>(options =>

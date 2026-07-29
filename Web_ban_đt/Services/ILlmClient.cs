@@ -1,7 +1,13 @@
 namespace TechStoreWeb.Services
 {
+    public class LlmClientResult
+    {
+        public string? Text { get; set; }
+        public bool IsServiceUnavailable { get; set; }
+    }
+
     public interface ILlmClient
     {
-        Task<string?> CompleteAsync(string systemPrompt, string userPrompt, CancellationToken cancellationToken);
+        Task<LlmClientResult> CompleteAsync(string systemPrompt, string userPrompt, CancellationToken cancellationToken);
     }
 }

@@ -72,11 +72,20 @@ namespace TechStoreWeb.Services
 
             var context = BuildContext(retrieved);
             var prompt = BuildUserPrompt(message, memory, context, history);
-            var answer = await _llmClient.CompleteAsync(SystemPrompt, prompt, cancellationToken);
+            var llmResult = await _llmClient.CompleteAsync(SystemPrompt, prompt, cancellationToken);
 
-            if (string.IsNullOrWhiteSpace(answer))
+            string answer;
+            if (llmResult.IsServiceUnavailable)
+            {
+                answer = "Xin lỗi, dịch vụ tư vấn đang bảo trì. Vui lòng thử lại sau ít phút. Nếu bạn cần hỗ trợ ngay, vui lòng liên hệ trực tiếp với đội ngũ TECHBLUE.";
+            }
+            else if (string.IsNullOrWhiteSpace(llmResult.Text))
             {
                 answer = BuildFallbackAnswer(message, memory, retrieved);
+            }
+            else
+            {
+                answer = llmResult.Text;
             }
 
             await SaveTurnAsync(customerKey, userId, message, answer, memory, cancellationToken);
@@ -341,7 +350,7 @@ namespace TechStoreWeb.Services
             var builder = new StringBuilder();
             foreach (var result in retrieved)
             {
-                var content = result.Chunk.Kind == ChatChunkKind.PolicyChild ? result.Chunk.ParentContent : result.Chunk.ParentContent;
+                var content = result.Chunk.Kind == ChatChunkKind.PolicyChild ? result.Chunk.ParentContent : result.Chunk.Content;
                 builder.AppendLine($"[Nguon: {result.Chunk.Title}, diem {result.Score:0.##}]");
                 builder.AppendLine(content);
                 builder.AppendLine();
@@ -396,28 +405,55 @@ namespace TechStoreWeb.Services
                 .Take(3)
                 .ToList();
 
+            if (productChunks.Count == 0)
+            {
+                return "Mình tìm thấy thông tin nhưng cần sự trợ giúp của nhân viên để tư vấn chính xác. Bạn cho mình biết thêm chi tiết về ngân sách, hãng, nhu cầu sử dụng chính để mình tư vấn tốt hơn nhé.";
+            }
+
             var builder = new StringBuilder();
-            builder.AppendLine("Mình gợi ý theo dữ liệu sản phẩm hiện có:");
+            builder.AppendLine("Dựa vào dữ liệu sản phẩm hiện có, mình gợi ý:");
 
             foreach (var item in productChunks)
             {
-                var lines = item.Chunk.Content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-                var price = lines.FirstOrDefault(line => line.Contains("Gia niem yet"))?.Replace("| Gia niem yet |", "").Replace("|", "").Trim();
-                var cpu = lines.FirstOrDefault(line => line.Contains("CPU / chip"))?.Replace("| CPU / chip |", "").Replace("|", "").Trim();
-                var ram = lines.FirstOrDefault(line => line.StartsWith("| RAM"))?.Replace("| RAM |", "").Replace("|", "").Trim();
-                var camera = lines.FirstOrDefault(line => line.Contains("Camera"))?.Replace("| Camera |", "").Replace("|", "").Trim();
-                var battery = lines.FirstOrDefault(line => line.Contains("Pin"))?.Replace("| Pin |", "").Replace("|", "").Trim();
+                if (string.IsNullOrWhiteSpace(item.Chunk.Content))
+                {
+                    continue;
+                }
 
-                builder.AppendLine($"- {item.Chunk.ProductName}: giá {price}, chip {cpu}, RAM {ram}, camera {camera}, pin {battery}.");
+                var lines = item.Chunk.Content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                var price = ExtractTableValue(lines, "Gia niem yet") ?? ExtractTableValue(lines, "Giá niêm yết");
+                var cpu = ExtractTableValue(lines, "CPU / chip") ?? ExtractTableValue(lines, "Chip");
+                var ram = ExtractTableValue(lines, "RAM");
+                var camera = ExtractTableValue(lines, "Camera");
+                var battery = ExtractTableValue(lines, "Pin");
+
+                if (!string.IsNullOrWhiteSpace(price))
+                {
+                    builder.AppendLine($"- {item.Chunk.ProductName}: {price}");
+                    if (!string.IsNullOrWhiteSpace(cpu)) builder.AppendLine($"  • Chip: {cpu}");
+                    if (!string.IsNullOrWhiteSpace(ram)) builder.AppendLine($"  • RAM: {ram}");
+                    if (!string.IsNullOrWhiteSpace(camera)) builder.AppendLine($"  • Camera: {camera}");
+                    if (!string.IsNullOrWhiteSpace(battery)) builder.AppendLine($"  • Pin: {battery}");
+                }
             }
 
+            builder.AppendLine();
             if (!string.IsNullOrWhiteSpace(memory.UseCases))
             {
-                builder.AppendLine($"Mình đã ghi nhớ nhu cầu của bạn: {memory.UseCases}.");
+                builder.AppendLine($"Nhu cầu của bạn: {memory.UseCases}");
             }
 
-            builder.AppendLine("Bạn muốn mình lọc tiếp theo ngân sách cụ thể hoặc so sánh 2 máy nào không?");
+            builder.AppendLine("Bạn muốn mình so sánh kỹ hơn, lọc theo ngân sách hoặc tư vấn chính xác hơn không?");
             return builder.ToString();
+        }
+
+        private static string? ExtractTableValue(string[] lines, string key)
+        {
+            var line = lines.FirstOrDefault(l => l.Contains(key, StringComparison.OrdinalIgnoreCase));
+            if (string.IsNullOrWhiteSpace(line)) return null;
+
+            var parts = line.Split('|', StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length > 1 ? parts[^1].Trim() : null;
         }
 
         private static ChatbotMemoryDto ToDto(ChatCustomerMemory memory)
