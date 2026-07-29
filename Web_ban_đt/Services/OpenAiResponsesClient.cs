@@ -46,6 +46,12 @@ namespace TechStoreWeb.Services
 
             using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint);
             httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
+            if (isGoogleApi)
+            {
+                // SDK google-genai xac thuc bang header nay; YeScale chap nhan ca hai.
+                httpRequest.Headers.Add("x-goog-api-key", _options.ApiKey);
+            }
+
             httpRequest.Content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
 
             try
@@ -181,19 +187,32 @@ namespace TechStoreWeb.Services
                     return null;
                 }
 
-                if (first.TryGetProperty("content", out var content) &&
-                    content.TryGetProperty("parts", out var parts) &&
-                    parts.ValueKind == JsonValueKind.Array)
+                if (!first.TryGetProperty("content", out var content) ||
+                    !content.TryGetProperty("parts", out var parts) ||
+                    parts.ValueKind != JsonValueKind.Array)
                 {
-                    var firstPart = parts.EnumerateArray().FirstOrDefault();
-                    if (firstPart.ValueKind != JsonValueKind.Undefined &&
-                        firstPart.TryGetProperty("text", out var text))
+                    return null;
+                }
+
+                // Model suy luan tra ve nhieu part; part chi chua thoughtSignature hoac
+                // duoc danh dau "thought" khong phai cau tra loi cho khach.
+                var builder = new StringBuilder();
+                foreach (var part in parts.EnumerateArray())
+                {
+                    if (part.TryGetProperty("thought", out var thought) &&
+                        thought.ValueKind == JsonValueKind.True)
                     {
-                        return text.GetString();
+                        continue;
+                    }
+
+                    if (part.TryGetProperty("text", out var text))
+                    {
+                        builder.AppendLine(text.GetString());
                     }
                 }
 
-                return null;
+                var result = builder.ToString().Trim();
+                return string.IsNullOrWhiteSpace(result) ? null : result;
             }
             catch
             {
