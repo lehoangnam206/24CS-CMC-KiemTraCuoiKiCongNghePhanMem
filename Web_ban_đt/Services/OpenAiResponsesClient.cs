@@ -118,7 +118,8 @@ namespace TechStoreWeb.Services
                 },
                 generationConfig = new
                 {
-                    temperature = 0.3,
+                    // Tu van gia va cau hinh la viec chep lai du lieu, khong phai sang tao.
+                    temperature = 0.0,
                     maxOutputTokens = 1024
                 }
             };

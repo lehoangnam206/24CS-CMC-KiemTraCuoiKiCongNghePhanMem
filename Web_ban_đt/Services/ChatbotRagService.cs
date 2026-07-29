@@ -209,6 +209,11 @@ namespace TechStoreWeb.Services
                 table.AppendLine($"| Phien ban mau/bo nho | {string.Join("; ", variants.Select(v => $"{v.Color} {v.ROM} - {FormatVnd(v.Price ?? product.Price)} - ton {v.Stock}"))} |");
             }
 
+            var allPrices = variants
+                .Select(variant => variant.Price ?? product.Price)
+                .Append(product.Price)
+                .ToList();
+
             return new ChatDocumentChunk
             {
                 Id = $"product-spec-{product.ProductId}",
@@ -219,6 +224,10 @@ namespace TechStoreWeb.Services
                 Brand = brand,
                 Topic = "specs",
                 Price = product.Price,
+                PriceFrom = allPrices.Min(),
+                PriceTo = allPrices.Max(),
+                ImageUrl = product.ImageUrl ?? string.Empty,
+                Stock = product.Stock,
                 Title = $"Thong so {product.Name}",
                 Content = table.ToString(),
                 ParentContent = table.ToString()

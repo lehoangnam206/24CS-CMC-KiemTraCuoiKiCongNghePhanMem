@@ -172,6 +172,64 @@
         font-weight: 700;
     }
 
+    .ai-chatbot-cards {
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .ai-chatbot-card {
+        display: grid;
+        grid-template-columns: 56px 1fr;
+        gap: 10px;
+        align-items: center;
+        padding: 8px;
+        border: 1px solid rgba(15, 23, 42, 0.1);
+        border-radius: 12px;
+        background: #f8fafc;
+        text-decoration: none;
+        color: inherit;
+        transition: border-color .15s ease, box-shadow .15s ease;
+    }
+
+    .ai-chatbot-card:hover {
+        border-color: #2563eb;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.14);
+    }
+
+    .ai-chatbot-card img {
+        width: 56px;
+        height: 56px;
+        object-fit: contain;
+        border-radius: 8px;
+        background: #ffffff;
+    }
+
+    .ai-chatbot-card-name {
+        font-size: 12.5px;
+        font-weight: 700;
+        line-height: 1.3;
+        color: #0f172a;
+    }
+
+    .ai-chatbot-card-price {
+        margin-top: 2px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #dc2626;
+    }
+
+    .ai-chatbot-card-stock {
+        margin-top: 2px;
+        font-size: 11px;
+        color: #64748b;
+    }
+
+    .ai-chatbot-card-stock.out {
+        color: #b45309;
+    }
+
     .ai-chatbot-form {
         display: grid;
         grid-template-columns: 1fr 42px;
@@ -245,10 +303,59 @@
             messages.scrollTop = messages.scrollHeight;
         };
 
-        const appendMessage = (role, text, sources) => {
+        const appendProductCards = (item, products) => {
+            const wrap = document.createElement('div');
+            wrap.className = 'ai-chatbot-cards';
+
+            products.slice(0, 4).forEach(product => {
+                const card = document.createElement('a');
+                card.className = 'ai-chatbot-card';
+                card.href = product.url;
+
+                if (product.imageUrl) {
+                    const img = document.createElement('img');
+                    img.src = product.imageUrl;
+                    img.alt = product.name;
+                    img.loading = 'lazy';
+                    // Anh hong thi bo han o anh, tranh hien icon vo trong khung chat.
+                    img.addEventListener('error', () => img.remove());
+                    card.appendChild(img);
+                }
+
+                const info = document.createElement('div');
+
+                const name = document.createElement('div');
+                name.className = 'ai-chatbot-card-name';
+                name.textContent = product.name;
+                info.appendChild(name);
+
+                if (product.priceText) {
+                    const price = document.createElement('div');
+                    price.className = 'ai-chatbot-card-price';
+                    price.textContent = product.priceText;
+                    info.appendChild(price);
+                }
+
+                const stock = document.createElement('div');
+                stock.className = `ai-chatbot-card-stock${product.inStock ? '' : ' out'}`;
+                stock.textContent = product.inStock ? 'Còn hàng · Xem chi tiết' : 'Tạm hết hàng';
+                info.appendChild(stock);
+
+                card.appendChild(info);
+                wrap.appendChild(card);
+            });
+
+            item.appendChild(wrap);
+        };
+
+        const appendMessage = (role, text, sources, products) => {
             const item = document.createElement('div');
             item.className = `ai-chatbot-msg ${role}`;
             item.textContent = text;
+
+            if (products && products.length) {
+                appendProductCards(item, products);
+            }
 
             if (sources && sources.length) {
                 const sourceWrap = document.createElement('div');
@@ -335,7 +442,7 @@
 
                 const data = await response.json();
                 loading.remove();
-                appendMessage('bot', data.answer || 'Mình chưa có câu trả lời phù hợp.', data.sources || []);
+                appendMessage('bot', data.answer || 'Mình chưa có câu trả lời phù hợp.', data.sources || [], data.products || []);
                 updateMemory(data.memory);
             } catch {
                 loading.textContent = 'Mình đang gặp lỗi kết nối. Bạn thử lại giúp mình sau vài giây nhé.';

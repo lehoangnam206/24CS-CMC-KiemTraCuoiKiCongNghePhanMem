@@ -10,7 +10,19 @@ namespace TechStoreWeb.Models.Chatbot
     {
         public string Answer { get; set; } = string.Empty;
         public IReadOnlyList<ChatbotSourceDto> Sources { get; set; } = Array.Empty<ChatbotSourceDto>();
+        public IReadOnlyList<ChatbotProductCardDto> Products { get; set; } = Array.Empty<ChatbotProductCardDto>();
         public ChatbotMemoryDto Memory { get; set; } = new();
+    }
+
+    /// <summary>Thẻ máy hiện kèm câu trả lời: ảnh, giá và lối tắt sang trang chi tiết.</summary>
+    public class ChatbotProductCardDto
+    {
+        public int ProductId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string ImageUrl { get; set; } = string.Empty;
+        public string PriceText { get; set; } = string.Empty;
+        public string Url { get; set; } = string.Empty;
+        public bool InStock { get; set; }
     }
 
     public class ChatbotSourceDto
