@@ -77,12 +77,20 @@ namespace TechStoreWeb.Services
             var prompt = BuildUserPrompt(message, memory, context, history);
             var llmResult = await _llmClient.CompleteAsync(SystemPrompt, prompt, cancellationToken);
 
-            string answer;
             if (llmResult.IsServiceUnavailable)
             {
-                answer = MaintenanceAnswer;
+                // Khong luu luot nay: cau bao tri se bi nap lai lam ngu canh cho luot sau,
+                // khien tu van vien tuong minh vua tu choi khach va xin loi tiep. Nguon RAG
+                // cung khong hien vi chua he tu van gi de dan chung.
+                return new ChatbotAskResponse
+                {
+                    Answer = MaintenanceAnswer,
+                    Memory = ToDto(memory)
+                };
             }
-            else if (string.IsNullOrWhiteSpace(llmResult.Text))
+
+            string answer;
+            if (string.IsNullOrWhiteSpace(llmResult.Text))
             {
                 answer = BuildFallbackAnswer(message, memory, retrieved);
             }
@@ -583,7 +591,7 @@ namespace TechStoreWeb.Services
             var normalizedBrand = RemoveDiacritics(brand ?? string.Empty).ToLowerInvariant().Trim();
             if (!string.IsNullOrEmpty(normalizedBrand) &&
                 !normalizedBrand.Equals("khac", StringComparison.Ordinal) &&
-                !normalizedAnswer.Contains(normalizedBrand))
+                !ContainsWholeWord(normalizedAnswer, normalizedBrand))
             {
                 return 0;
             }
@@ -600,12 +608,14 @@ namespace TechStoreWeb.Services
                 return 0;
             }
 
-            var matched = tokens.Count(token => normalizedAnswer.Contains(token));
+            // So khop theo ranh gioi tu, khong dung Contains: ma may "08" se an theo
+            // "108mp" trong cau "camera 108MP" va hien the mot may khong he duoc nhac.
+            var matched = tokens.Count(token => ContainsWholeWord(normalizedAnswer, token));
             var modelTokens = tokens.Where(token => token.Any(char.IsDigit)).ToList();
 
             if (modelTokens.Count > 0)
             {
-                return modelTokens.Any(token => normalizedAnswer.Contains(token))
+                return modelTokens.Any(token => ContainsWholeWord(normalizedAnswer, token))
                     ? (double)matched / tokens.Count
                     : 0;
             }

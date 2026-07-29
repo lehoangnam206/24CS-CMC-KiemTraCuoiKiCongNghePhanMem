@@ -44,6 +44,35 @@ namespace TechStoreWeb.Services
                 request = CreateResponsesRequest(systemPrompt, userPrompt);
             }
 
+            var payload = JsonSerializer.Serialize(request);
+            var result = new LlmClientResult { Text = null, IsServiceUnavailable = true, IsRetryable = true };
+
+            for (var attempt = 1; attempt <= MaxAttempts; attempt++)
+            {
+                result = await SendOnceAsync(endpoint, payload, isGoogleApi, isChatCompletions, cancellationToken);
+
+                if (!result.IsRetryable || cancellationToken.IsCancellationRequested)
+                {
+                    return result;
+                }
+
+                if (attempt < MaxAttempts)
+                {
+                    _logger.LogWarning("LLM call failed with a transient error, retrying ({Attempt}/{MaxAttempts}).", attempt, MaxAttempts);
+                    await Task.Delay(RetryBackoff * attempt, cancellationToken);
+                }
+            }
+
+            return result;
+        }
+
+        private async Task<LlmClientResult> SendOnceAsync(
+            string endpoint,
+            string payload,
+            bool isGoogleApi,
+            bool isChatCompletions,
+            CancellationToken cancellationToken)
+        {
             using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint);
             httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
             if (isGoogleApi)
@@ -52,32 +81,60 @@ namespace TechStoreWeb.Services
                 httpRequest.Headers.Add("x-goog-api-key", _options.ApiKey);
             }
 
-            httpRequest.Content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+            httpRequest.Content = new StringContent(payload, Encoding.UTF8, "application/json");
+
+            // Nha cung cap thinh thoang treo hang chuc giay roi moi tra loi, trong khi goi lai
+            // thuong xong trong 1-2 giay. Cat ngan tung luot de khach khong ngoi cho vo ich.
+            using var attemptTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            attemptTimeout.CancelAfter(AttemptTimeout);
 
             try
             {
-                using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
-                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                using var response = await _httpClient.SendAsync(httpRequest, attemptTimeout.Token);
+                var body = await response.Content.ReadAsStringAsync(attemptTimeout.Token);
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    var isServiceUnavailable = IsServiceUnavailableError(response.StatusCode, body);
-                    _logger.LogWarning("LLM provider returned {StatusCode}: {Body}. ServiceUnavailable={IsServiceUnavailable}",
-                        response.StatusCode, body, isServiceUnavailable);
-                    return new LlmClientResult { Text = null, IsServiceUnavailable = isServiceUnavailable };
+                    var isRetryable = IsRetryableStatus(response.StatusCode);
+                    _logger.LogWarning("LLM provider returned {StatusCode}: {Body}. Retryable={IsRetryable}",
+                        response.StatusCode, body, isRetryable);
+
+                    return new LlmClientResult
+                    {
+                        Text = null,
+                        IsServiceUnavailable = IsServiceUnavailableError(response.StatusCode, body),
+                        IsRetryable = isRetryable
+                    };
                 }
 
                 var text = isGoogleApi ? ExtractGoogleText(body) :
                           isChatCompletions ? ExtractChatCompletionsText(body) :
                           ExtractResponsesText(body);
-                return new LlmClientResult { Text = text, IsServiceUnavailable = false };
+                return new LlmClientResult { Text = text, IsServiceUnavailable = false, IsRetryable = false };
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning("LLM call timed out after {Seconds}s.", AttemptTimeout.TotalSeconds);
+                return new LlmClientResult { Text = null, IsServiceUnavailable = true, IsRetryable = true };
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Cannot call LLM provider.");
-                return new LlmClientResult { Text = null, IsServiceUnavailable = true };
+                return new LlmClientResult { Text = null, IsServiceUnavailable = true, IsRetryable = true };
             }
         }
+
+        private static bool IsRetryableStatus(System.Net.HttpStatusCode statusCode)
+        {
+            // 402 het so du va 401/403 sai khoa thi goi lai bao nhieu lan cung the.
+            return (int)statusCode >= 500 ||
+                   statusCode == System.Net.HttpStatusCode.RequestTimeout ||
+                   statusCode == System.Net.HttpStatusCode.TooManyRequests;
+        }
+
+        private const int MaxAttempts = 3;
+        private static readonly TimeSpan AttemptTimeout = TimeSpan.FromSeconds(20);
+        private static readonly TimeSpan RetryBackoff = TimeSpan.FromMilliseconds(400);
 
         private static bool IsServiceUnavailableError(System.Net.HttpStatusCode statusCode, string body)
         {
