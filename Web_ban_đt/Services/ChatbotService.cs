@@ -122,7 +122,7 @@ namespace TechStoreWeb.Services
 
         public async Task<IReadOnlyList<ChatbotHistoryItemDto>> GetHistoryAsync(string customerKey, int? userId, CancellationToken cancellationToken)
         {
-            return await _context.ChatMessageLogs
+            var history = await _context.ChatMessageLogs
                 .Where(log => log.CustomerKey == customerKey && log.UserId == userId)
                 .OrderByDescending(log => log.CreatedAt)
                 .Take(30)
@@ -134,6 +134,26 @@ namespace TechStoreWeb.Services
                     CreatedAt = log.CreatedAt
                 })
                 .ToListAsync(cancellationToken);
+
+            // Thẻ máy không được lưu kèm tin nhắn mà dựng lại từ tên máy trong nội dung:
+            // mở lại khung chat cũ vẫn thấy ảnh, đồng thời giá và tồn kho luôn là số hiện tại
+            // chứ không phải số đóng băng lúc tư vấn.
+            var catalogue = await _ragService.GetProductChunksAsync(cancellationToken);
+            if (catalogue.Count == 0)
+            {
+                return history;
+            }
+
+            var asRetrieved = catalogue
+                .Select(chunk => new RetrievedChatChunk { Chunk = chunk, Score = 0 })
+                .ToList();
+
+            foreach (var item in history.Where(item => item.Role != "user"))
+            {
+                item.Products = BuildProductCards(item.Content, asRetrieved);
+            }
+
+            return history;
         }
 
         private async Task<ChatCustomerMemory> GetOrCreateMemoryAsync(string customerKey, int? userId, string? customerName, CancellationToken cancellationToken)
@@ -589,11 +609,16 @@ namespace TechStoreWeb.Services
         private static double MentionScore(string normalizedAnswer, string productName, string brand)
         {
             var normalizedBrand = RemoveDiacritics(brand ?? string.Empty).ToLowerInvariant().Trim();
-            if (!string.IsNullOrEmpty(normalizedBrand) &&
-                !normalizedBrand.Equals("khac", StringComparison.Ordinal) &&
-                !ContainsWholeWord(normalizedAnswer, normalizedBrand))
+            if (!string.IsNullOrEmpty(normalizedBrand) && !normalizedBrand.Equals("khac", StringComparison.Ordinal))
             {
-                return 0;
+                // Contains() rẻ hơn regex nhiều và loại sớm gần hết kho khi dựng lại lịch sử
+                // (đối chiếu cả trăm máy cho từng tin nhắn cũ). Khớp nguyên từ luôn kéo theo
+                // khớp chuỗi con, nên lọc trước bằng Contains không bỏ sót trường hợp nào.
+                if (!normalizedAnswer.Contains(normalizedBrand, StringComparison.Ordinal) ||
+                    !ContainsWholeWord(normalizedAnswer, normalizedBrand))
+                {
+                    return 0;
+                }
             }
 
             var tokens = RemoveDiacritics(productName)

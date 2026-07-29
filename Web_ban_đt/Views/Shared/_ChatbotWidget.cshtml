@@ -395,7 +395,11 @@
                         const history = await response.json();
                         if (history.length && messages.dataset.loaded !== 'true') {
                             messages.innerHTML = '';
-                            history.forEach(item => appendMessage(item.role === 'user' ? 'user' : 'bot', item.content));
+                            history.forEach(item => appendMessage(
+                                item.role === 'user' ? 'user' : 'bot',
+                                item.content,
+                                [],
+                                item.products || []));
                             messages.dataset.loaded = 'true';
                         }
                     }

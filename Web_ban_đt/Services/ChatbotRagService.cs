@@ -14,6 +14,11 @@ namespace TechStoreWeb.Services
             decimal? budgetMin,
             decimal? budgetMax,
             CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Toàn bộ máy trong kho, dùng để dựng lại thẻ sản phẩm cho lịch sử hội thoại cũ.
+        /// </summary>
+        Task<IReadOnlyList<ChatDocumentChunk>> GetProductChunksAsync(CancellationToken cancellationToken);
     }
 
     public class ChatbotRagService : IChatbotRagService
@@ -109,6 +114,12 @@ namespace TechStoreWeb.Services
                     yield return queue.Dequeue();
                 }
             }
+        }
+
+        public async Task<IReadOnlyList<ChatDocumentChunk>> GetProductChunksAsync(CancellationToken cancellationToken)
+        {
+            var chunks = await GetChunksAsync(cancellationToken);
+            return chunks.Where(chunk => chunk.Kind == ChatChunkKind.ProductSpecs).ToList();
         }
 
         private static bool IsWithinBudget(decimal? price, decimal? budgetMin, decimal? budgetMax)
