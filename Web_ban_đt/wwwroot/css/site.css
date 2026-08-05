@@ -13,7 +13,6 @@ html {
   border-color: #ced4da; /* reset to default bootstrap border color if needed, or inherit */
 }
 
-/* Remove blue background on autofill in WebKit browsers */
 input:-webkit-autofill,
 input:-webkit-autofill:hover, 
 input:-webkit-autofill:focus, 

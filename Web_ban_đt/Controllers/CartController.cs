@@ -16,6 +16,16 @@ namespace TechStoreWeb.Controllers
         private const string SESSION_DISCOUNT = "CartDiscount";
         private const decimal SHIPPING_FEE = 20000m;
 
+        private const decimal INSURANCE_RATE = 0.005m;
+        private const decimal MIN_INSURANCE_FEE = 2000m;
+
+        private static decimal CalculateInsuranceFee(decimal subtotal)
+        {
+            if (subtotal <= 0) return 0m;
+            var fee = Math.Ceiling(subtotal * INSURANCE_RATE / 1000m) * 1000m;
+            return Math.Max(fee, MIN_INSURANCE_FEE);
+        }
+
         public CartController(AppDbContext context)
         {
             _context = context;
@@ -25,7 +35,6 @@ namespace TechStoreWeb.Controllers
         {
             var cart = GetCart();
 
-            // Giá luôn được làm mới từ DB để giỏ hàng không giữ giá cũ đã đổi.
             RefreshPrices(cart);
             SaveCart(cart);
 
@@ -35,16 +44,12 @@ namespace TechStoreWeb.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        // Nut "Mua ngay" va nut gio hang cung post ve day, phan biet nhau bang truong "action"
-        // (xem Views/Home/Detail.cshtml). Tham so cu ten 'isBuyNow' khong khop ten truong nen
-        // luon nhan false, khien "Mua ngay" chi them vao gio roi quay lai trang san pham.
         public IActionResult Add(int productId, int? variantId, int qty = 1, string? action = null)
         {
             var isBuyNow = string.Equals(action, "buy", StringComparison.OrdinalIgnoreCase);
 
             if (qty < 1) qty = 1;
 
-            // Tên, giá và ảnh đều tra từ DB — không nhận từ client.
             var product = _context.Products.Find(productId);
             if (product == null)
             {
@@ -203,22 +208,35 @@ namespace TechStoreWeb.Controllers
 
             ViewBag.User = _context.Users.Find(userId);
             ViewBag.Discount = HttpContext.Session.GetObject<decimal>(SESSION_DISCOUNT);
+            ViewBag.ShippingFee = SHIPPING_FEE;
+            ViewBag.InsuranceFee = CalculateInsuranceFee(selectedItems.Sum(i => i.Price * i.Qty));
+
+            if (TempData["CheckoutForm"] is string savedForm && !string.IsNullOrEmpty(savedForm))
+            {
+                ViewBag.SavedForm = System.Text.Json.JsonSerializer.Deserialize<CheckoutFormModel>(savedForm);
+            }
 
             return View(selectedItems);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Checkout(string shippingAddress, string paymentMethod)
+        public IActionResult Checkout(CheckoutFormModel form)
         {
             var userId = HttpContext.Session.GetInt32("UserId");
             if (userId == null) return RedirectToAction("Login", "Account", new { returnUrl = "/Cart/Checkout" });
 
-            if (string.IsNullOrWhiteSpace(shippingAddress))
+            var validationError = ValidateCheckoutForm(form);
+            if (validationError != null)
             {
-                TempData["ErrorMessage"] = "Vui lòng nhập địa chỉ giao hàng.";
+                TempData["ErrorMessage"] = validationError;
+                TempData["CheckoutForm"] = System.Text.Json.JsonSerializer.Serialize(form);
                 return RedirectToAction("Checkout");
             }
+
+            var shippingAddress = BuildShippingAddress(form);
+            var paymentMethod = string.IsNullOrWhiteSpace(form.PaymentMethod) ? "COD" : form.PaymentMethod;
+            var shippingFee = SHIPPING_FEE;
 
             var cart = GetCart();
             var selectedItems = cart.Where(c => c.Selected).ToList();
@@ -251,7 +269,6 @@ namespace TechStoreWeb.Controllers
                     }
                 }
 
-                // Chốt giá từ DB ngay tại thời điểm đặt hàng.
                 var unitPrice = variant?.Price ?? product.Price;
                 var availableStock = variant?.Stock ?? product.Stock;
 
@@ -264,12 +281,31 @@ namespace TechStoreWeb.Controllers
                     return RedirectToAction("Index");
                 }
 
-                // Trừ kho
+                var siblings = _context.ProductVariants
+                    .Where(v => v.ProductId == product.ProductId)
+                    .ToList();
+
                 if (variant != null)
                 {
                     variant.Stock -= item.Qty;
+                    product.Stock = siblings.Sum(v => v.Stock);
                 }
-                product.Stock -= item.Qty;
+                else if (siblings.Count > 0)
+                {
+                    var remaining = item.Qty;
+                    foreach (var sibling in siblings.Where(v => v.Stock > 0).OrderByDescending(v => v.Stock))
+                    {
+                        if (remaining <= 0) break;
+                        var take = Math.Min(sibling.Stock, remaining);
+                        sibling.Stock -= take;
+                        remaining -= take;
+                    }
+                    product.Stock = siblings.Sum(v => v.Stock);
+                }
+                else
+                {
+                    product.Stock -= item.Qty;
+                }
 
                 subtotal += unitPrice * item.Qty;
                 orderDetails.Add(new OrderDetail
@@ -281,7 +317,8 @@ namespace TechStoreWeb.Controllers
             }
 
             var discount = HttpContext.Session.GetObject<decimal>(SESSION_DISCOUNT);
-            var total = Math.Max(subtotal + SHIPPING_FEE - discount, 0m);
+            var insuranceFee = form.BuyInsurance ? CalculateInsuranceFee(subtotal) : 0m;
+            var total = Math.Max(subtotal + shippingFee + insuranceFee - discount, 0m);
 
             var order = new Order
             {
@@ -291,6 +328,13 @@ namespace TechStoreWeb.Controllers
                 Status = "Pending",
                 PaymentMethod = paymentMethod,
                 ShippingAddress = shippingAddress,
+                ReceiverName = form.ReceiverName?.Trim(),
+                ReceiverPhone = form.ReceiverPhone?.Trim(),
+                ReceiverEmail = form.ReceiverEmail?.Trim(),
+                Note = string.IsNullOrWhiteSpace(form.Note) ? null : form.Note.Trim(),
+                ShippingMethod = "Standard",
+                ShippingFee = shippingFee,
+                InsuranceFee = insuranceFee,
                 OrderDetails = orderDetails
             };
 
@@ -319,7 +363,6 @@ namespace TechStoreWeb.Controllers
             var order = GetOwnedOrder(id);
             if (order == null) return RedirectToAction("Index", "Home");
 
-            // Xóa các món đã đặt khỏi giỏ
             var cart = GetCart();
             if (cart.Any(c => c.Selected))
             {
@@ -330,9 +373,54 @@ namespace TechStoreWeb.Controllers
             return View(order);
         }
 
-        // ---------- Helpers ----------
 
-        /// <summary>Chỉ trả về đơn hàng thuộc về người đang đăng nhập.</summary>
+        private static string? ValidateCheckoutForm(CheckoutFormModel form)
+        {
+            if (string.IsNullOrWhiteSpace(form.ReceiverName) || form.ReceiverName.Trim().Length < 2)
+                return "Vui lòng nhập họ tên người nhận.";
+
+            var phone = (form.ReceiverPhone ?? string.Empty).Replace(" ", "").Replace(".", "").Replace("-", "");
+            if (!System.Text.RegularExpressions.Regex.IsMatch(phone, @"^(0|\+84)([0-9]{9})$"))
+                return "Số điện thoại không hợp lệ. Vui lòng nhập số di động 10 chữ số.";
+
+            if (!string.IsNullOrWhiteSpace(form.ReceiverEmail)
+                && !System.Text.RegularExpressions.Regex.IsMatch(form.ReceiverEmail.Trim(), @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+                return "Email không hợp lệ.";
+
+            if (string.IsNullOrWhiteSpace(form.Province))
+                return "Vui lòng chọn Tỉnh/Thành phố.";
+
+            if (string.IsNullOrWhiteSpace(form.Ward))
+                return "Vui lòng nhập Phường/Xã.";
+
+            if (string.IsNullOrWhiteSpace(form.AddressDetail) || form.AddressDetail.Trim().Length < 5)
+                return "Vui lòng nhập địa chỉ chi tiết (số nhà, tên đường).";
+
+            return null;
+        }
+
+        private static string BuildShippingAddress(CheckoutFormModel form)
+        {
+            var parts = new List<string>();
+
+            var detail = form.AddressDetail?.Trim();
+            if (!string.IsNullOrWhiteSpace(form.AddressType))
+            {
+                var label = string.Equals(form.AddressType, "Office", StringComparison.OrdinalIgnoreCase)
+                    ? "Văn phòng"
+                    : "Nhà riêng";
+                detail = $"{detail} ({label})";
+            }
+
+            parts.Add(detail!);
+            if (!string.IsNullOrWhiteSpace(form.Ward)) parts.Add(form.Ward.Trim());
+            if (!string.IsNullOrWhiteSpace(form.District)) parts.Add(form.District.Trim());
+            if (!string.IsNullOrWhiteSpace(form.Province)) parts.Add(form.Province.Trim());
+
+            return string.Join(", ", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
+        }
+
+
         private Order? GetOwnedOrder(int orderId)
         {
             var userId = HttpContext.Session.GetInt32("UserId");
@@ -345,7 +433,6 @@ namespace TechStoreWeb.Controllers
         {
             var cart = HttpContext.Session.GetObject<List<CartItem>>(SESSION_CART) ?? new List<CartItem>();
 
-            // Bỏ các dòng lưu theo định dạng cũ (chưa có ProductId) còn sót trong session.
             return cart.Where(c => c.ProductId > 0).ToList();
         }
 
@@ -370,7 +457,6 @@ namespace TechStoreWeb.Controllers
                 .FirstOrDefault() ?? 0;
         }
 
-        /// <summary>Đồng bộ lại giá và tên từ DB cho mọi dòng trong giỏ.</summary>
         private void RefreshPrices(List<CartItem> cart)
         {
             foreach (var item in cart)

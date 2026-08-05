@@ -22,7 +22,6 @@ namespace TechStoreWeb.Controllers
             var userId = HttpContext.Session.GetInt32("UserId");
             if (userId == null) return RedirectToAction("Login", "Account", new { returnUrl = $"/Reviews/Create?productId={productId}" });
 
-            // Kiểm tra xem user có mua sản phẩm này và đã nhận hàng chưa
             var hasPurchased = _context.Orders
                 .Include(o => o.OrderDetails)
                 .Any(o => o.UserId == userId && o.Status == "Delivered" && o.OrderDetails.Any(od => od.ProductId == productId));

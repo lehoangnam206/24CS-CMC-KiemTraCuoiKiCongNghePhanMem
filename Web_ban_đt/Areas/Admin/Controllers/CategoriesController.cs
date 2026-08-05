@@ -23,7 +23,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return HttpContext.Session.GetString("Role") == "Admin";
         }
 
-        // GET: Admin/Categories
         public async Task<IActionResult> Index()
         {
             if (!IsAdmin()) return RedirectToAction("Login", "Account", new { area = "" });
@@ -31,14 +30,12 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View(categories);
         }
 
-        // GET: Admin/Categories/Create
         public IActionResult Create()
         {
             if (!IsAdmin()) return RedirectToAction("Login", "Account", new { area = "" });
             return View();
         }
 
-        // POST: Admin/Categories/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("CategoryId,CategoryName")] Category category)
@@ -61,7 +58,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View(category);
         }
 
-        // GET: Admin/Categories/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
             if (!IsAdmin()) return RedirectToAction("Login", "Account", new { area = "" });
@@ -73,7 +69,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View(category);
         }
 
-        // POST: Admin/Categories/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("CategoryId,CategoryName")] Category category)
@@ -105,7 +100,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View(category);
         }
 
-        // POST: Admin/Categories/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)

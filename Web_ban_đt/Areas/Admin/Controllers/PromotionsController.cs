@@ -20,10 +20,10 @@ namespace TechStoreWeb.Areas.Admin.Controllers
 
         private bool IsAdmin()
         {
-            return HttpContext.Session.GetString("Role") == "Admin";
+            return TechStoreWeb.Services.AdminPermissions.Can(
+                HttpContext, _context, TechStoreWeb.Services.AdminPermissions.Promotions);
         }
 
-        // GET: Admin/Promotions
         public async Task<IActionResult> Index()
         {
             if (!IsAdmin()) return RedirectToAction("Login", "Account", new { area = "" });
@@ -32,7 +32,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
 
             var promotions = await _context.Promotions.ToListAsync();
 
-            // Số sản phẩm và trạng thái thực tế của từng chương trình.
             var counts = await _context.PromotionProducts
                 .GroupBy(pp => pp.PromotionId)
                 .Select(g => new { PromotionId = g.Key, Count = g.Count() })
@@ -45,7 +44,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View(promotions);
         }
 
-        // GET: Admin/Promotions/Create
         public async Task<IActionResult> Create()
         {
             if (!IsAdmin()) return RedirectToAction("Login", "Account", new { area = "" });
@@ -54,7 +52,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View();
         }
 
-        // POST: Admin/Promotions/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("Name,DiscountPercentage,StartDate,EndDate,IsActive")] Promotion promotion, int[] productIds)
@@ -80,7 +77,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             _context.Promotions.Add(promotion);
             await _context.SaveChangesAsync();
 
-            // Ghi lại liên kết kèm giá gốc để sau này khôi phục đúng sản phẩm của đúng chương trình.
             foreach (var productId in productIds!.Distinct())
             {
                 var baseline = await _promotionService.GetBaselinePriceAsync(productId);
@@ -104,7 +100,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // GET: Admin/Promotions/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
             if (!IsAdmin()) return RedirectToAction("Login", "Account", new { area = "" });
@@ -116,7 +111,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View(promotion);
         }
 
-        // POST: Admin/Promotions/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("Id,Name,DiscountPercentage,StartDate,EndDate,IsActive")] Promotion promotion)
@@ -150,7 +144,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // POST: Admin/Promotions/EndPromotion/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> EndPromotion(int id)
@@ -167,7 +160,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             promotion.IsActive = false;
             await _context.SaveChangesAsync();
 
-            // Chỉ sản phẩm của chương trình này bị ảnh hưởng; các CTKM khác giữ nguyên.
             await _promotionService.SyncAsync();
 
             TempData["SuccessMessage"] = "Đã kết thúc chương trình và khôi phục giá gốc cho các sản phẩm của chương trình này!";

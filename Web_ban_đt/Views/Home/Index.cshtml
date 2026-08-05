@@ -14,7 +14,6 @@
             min-height: 420px;
         }
 
-        /* Sidebar Menu */
         .home-sidebar {
             background-color: var(--surface-color);
             border-radius: 8px;
@@ -69,7 +68,6 @@
         }
 
 
-        /* Top Banner Slider */
         .top-banner {
             background-color: var(--surface-color);
             border-radius: 8px;
@@ -115,13 +113,11 @@
 
         .top-banner-slider .slide-item.active { display: flex; align-items: center; }
 
-        /* Nền gradient xanh TECHBLUE cho từng slide */
         .slide-item.theme-deep   { background: linear-gradient(115deg, #0b2a6f 0%, #1746b3 48%, #2563eb 100%); }
         .slide-item.theme-bright { background: linear-gradient(115deg, #1d4ed8 0%, #2563eb 45%, #38bdf8 100%); }
         .slide-item.theme-night  { background: linear-gradient(115deg, #0a1a3c 0%, #123a86 55%, #1d4ed8 100%); }
         .slide-item.theme-sky    { background: linear-gradient(115deg, #1e40af 0%, #2f6fe4 50%, #7dd3fc 100%); }
 
-        /* Vệt sáng + lưới trang trí */
         .slide-item::before {
             content: '';
             position: absolute;
@@ -201,7 +197,6 @@
             color: #1d4ed8;
         }
 
-        /* Điện thoại minh hoạ dựng bằng CSS */
         .slide-visual {
             position: absolute;
             right: 64px;
@@ -339,7 +334,6 @@
             text-overflow: ellipsis;
         }
 
-        /* Right Promo Banners */
         .right-promo-banners {
             display: flex;
             flex-direction: column;
@@ -409,7 +403,6 @@
             line-height: 1.45;
         }
 
-        /* Banner ngang dưới hero */
         .wide-banner {
             position: relative;
             overflow: hidden;
@@ -476,7 +469,6 @@
             color: rgba(255,255,255,0.78);
         }
 
-        /* Section Heading */
         .section-header {
             display: flex;
             align-items: center;
@@ -498,7 +490,6 @@
         }
         .section-header-links a:hover { text-decoration: underline; }
 
-        /* Product List */
         .product-list {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
@@ -506,7 +497,6 @@
             margin-bottom: 40px;
         }
 
-        /* Retail Product Card */
         .product-card {
             background-color: var(--surface-color);
             border-radius: 8px;
@@ -572,7 +562,6 @@
             font-weight: 500;
         }
 
-        /* Promo Box */
         .promo-box {
             background-color: #f3f4f6;
             border: 1px solid #e5e7eb;
@@ -590,7 +579,6 @@
             color: var(--primary-color);
         }
 
-        /* Rating Row */
         .rating-row {
             display: flex;
             align-items: center;
@@ -600,6 +588,25 @@
         }
         .rating-row i { color: #f59e0b; font-size: 12px; }
         .rating-row span { font-size: 12px; color: var(--text-muted); margin-left: 4px; }
+        .rating-row .no-rating { font-style: italic; margin-left: 0; }
+
+        .discount-badge {
+            display: inline-block;
+            background: rgba(215, 0, 24, 0.08);
+            color: #d70018;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+
+        .add-to-cart-btn:disabled {
+            background: #f3f4f6;
+            color: var(--text-muted);
+            border-color: #e5e7eb;
+            cursor: not-allowed;
+        }
 
         .add-to-cart-btn {
             background: rgba(37, 99, 235, 0.1);
@@ -623,7 +630,6 @@
             color: #ffffff;
         }
 
-        /* Trending */
         .trending-keywords {
             display: flex;
             flex-wrap: wrap;
@@ -670,7 +676,6 @@
             .perk { min-width: 108px; padding: 12px 16px; }
         }
 
-        /* Phân trang */
         .pagination-bar {
             display: flex;
             align-items: center;
@@ -729,7 +734,6 @@
             .pagination-info { width: 100%; text-align: center; }
         }
 
-        /* Breadcrumb Navigation */
         .breadcrumb-nav {
             display: flex;
             align-items: center;
@@ -933,34 +937,73 @@
     <div class="product-list">
         @if (Model != null && Model.Any())
         {
+            var ratingSummaries = ViewBag.RatingSummaries as Dictionary<int, TechStoreWeb.Models.RatingSummary>
+                                  ?? new Dictionary<int, TechStoreWeb.Models.RatingSummary>();
+
             foreach (var item in Model)
             {
+                ratingSummaries.TryGetValue(item.ProductId, out var rating);
+                var hasDiscount = item.OriginalPrice.HasValue && item.OriginalPrice.Value > item.Price;
+                var isSoldOut = item.Stock <= 0;
+
                 <div class="product-card">
                     <a href="/Home/Detail/@item.ProductId" style="display:block; text-decoration: none;">
                         <img src="@item.ImageUrl" alt="@item.Name">
                         <div class="product-name">@item.Name</div>
                         <div class="price-row">
                             <div class="product-price">@item.Price.ToString("N0")đ</div>
-                            <div class="product-old-price">@((item.Price * 1.2m).ToString("N0"))đ</div>
+                            @if (hasDiscount)
+                            {
+                                <div class="product-old-price">@item.OriginalPrice.Value.ToString("N0")đ</div>
+                            }
                         </div>
+                        @if (hasDiscount)
+                        {
+                            var percentOff = (int)Math.Round((1 - item.Price / item.OriginalPrice.Value) * 100);
+                            <div class="discount-badge">Giảm @percentOff%</div>
+                        }
                         <div class="promo-box">
                             <p>Không phí chuyển đổi khi trả góp qua thẻ tín dụng</p>
                         </div>
                         <div class="rating-row">
-                            <i class="bi bi-star-fill"></i>
-                            <i class="bi bi-star-fill"></i>
-                            <i class="bi bi-star-fill"></i>
-                            <i class="bi bi-star-fill"></i>
-                            <i class="bi bi-star-half"></i>
-                            <span>(12 đánh giá)</span>
+                            @if (rating != null && rating.Count > 0)
+                            {
+                                for (int i = 1; i <= 5; i++)
+                                {
+                                    if (rating.Average >= i)
+                                    {
+                                        <i class="bi bi-star-fill"></i>
+                                    }
+                                    else if (rating.Average >= i - 0.5)
+                                    {
+                                        <i class="bi bi-star-half"></i>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-star"></i>
+                                    }
+                                }
+                                <span>@rating.Average.ToString("0.0") (@rating.Count đánh giá)</span>
+                            }
+                            else
+                            {
+                                <span class="no-rating">Chưa có đánh giá</span>
+                            }
                         </div>
                     </a>
 
                     <form asp-controller="Cart" asp-action="Add" method="post" style="width: 100%;">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="productId" value="@item.ProductId" />
-                        <button type="submit" class="add-to-cart-btn">
-                            <i class="bi bi-cart-plus"></i> Thêm vào giỏ
+                        <button type="submit" class="add-to-cart-btn" disabled="@(isSoldOut ? "disabled" : null)">
+                            @if (isSoldOut)
+                            {
+                                <text><i class="bi bi-x-circle"></i> Hết hàng</text>
+                            }
+                            else
+                            {
+                                <text><i class="bi bi-cart-plus"></i> Thêm vào giỏ</text>
+                            }
                         </button>
                     </form>
                 </div>

@@ -22,7 +22,6 @@ namespace TechStoreWeb.Controllers
             _passwordHasher = passwordHasher;
         }
 
-        // UC01: Đăng ký
         public IActionResult Register(string? returnUrl = null)
         {
             ViewData["ReturnUrl"] = returnUrl;
@@ -77,7 +76,6 @@ namespace TechStoreWeb.Controllers
             return View(user);
         }
 
-        // UC02: Đăng nhập
         public IActionResult Login(string? returnUrl = null)
         {
             ViewData["ReturnUrl"] = returnUrl;
@@ -96,7 +94,6 @@ namespace TechStoreWeb.Controllers
                 return View();
             }
 
-            // Hỗ trợ đăng nhập bằng email hoặc username
             var user = _context.Users.FirstOrDefault(u =>
                 (u.Username == username || u.Email == username) &&
                 u.LoginProvider == "Local");
@@ -113,19 +110,16 @@ namespace TechStoreWeb.Controllers
                     return View();
                 }
 
-                // Mật khẩu cũ còn lưu plaintext: băm lại ngay khi đăng nhập thành công.
                 if (verification == PasswordVerificationResult.SuccessNeedsUpgrade)
                 {
                     user.Password = _passwordHasher.Hash(password);
                     _context.SaveChanges();
                 }
 
-                // Set session
                 HttpContext.Session.SetInt32("UserId", user.UserId);
                 HttpContext.Session.SetString("Username", user.FullName);
                 HttpContext.Session.SetString("Role", user.Role);
 
-                // Nếu có returnUrl hợp lệ
                 if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
                 {
                     return Redirect(returnUrl);
@@ -141,7 +135,6 @@ namespace TechStoreWeb.Controllers
             return View();
         }
 
-        // Đăng nhập bằng Facebook (bắt đầu OAuth flow)
         [HttpGet]
         public IActionResult ExternalLogin(string provider, string returnUrl = "/")
         {
@@ -150,7 +143,6 @@ namespace TechStoreWeb.Controllers
             return Challenge(properties, provider);
         }
 
-        // Callback từ Facebook/Google sau khi user xác thực
         [HttpGet]
         public async Task<IActionResult> ExternalLoginCallback(string returnUrl = "/")
         {
@@ -172,7 +164,6 @@ namespace TechStoreWeb.Controllers
             var email = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
             var name = claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
 
-            // Xác định provider (Facebook hoặc Google)
             var issuer = result.Principal?.Identities.FirstOrDefault()?.AuthenticationType;
             var provider = issuer switch
             {
@@ -187,24 +178,20 @@ namespace TechStoreWeb.Controllers
                 return RedirectToAction("Login");
             }
 
-            // Tìm user đã liên kết provider này
             var user = _context.Users.FirstOrDefault(u =>
                 u.LoginProvider == provider && u.ProviderKey == providerId);
 
-            // Nếu chưa có → tìm theo email
             if (user == null && !string.IsNullOrEmpty(email))
             {
                 user = _context.Users.FirstOrDefault(u => u.Email == email);
                 if (user != null)
                 {
-                    // Liên kết tài khoản hiện có
                     user.LoginProvider = provider;
                     user.ProviderKey = providerId;
                     _context.SaveChanges();
                 }
             }
 
-            // Nếu vẫn chưa có → tạo tài khoản mới
             if (user == null)
             {
                 user = new User
@@ -223,21 +210,17 @@ namespace TechStoreWeb.Controllers
                 _context.SaveChanges();
             }
 
-            // Kiểm tra tài khoản bị khóa
             if (user.IsLocked)
             {
-                // Sign out khỏi cookie authentication
                 await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
                 TempData["ErrorMessage"] = "Tài khoản của bạn đã bị khóa.";
                 return RedirectToAction("Login");
             }
 
-            // Set session
             HttpContext.Session.SetInt32("UserId", user.UserId);
             HttpContext.Session.SetString("Username", user.FullName);
             HttpContext.Session.SetString("Role", user.Role);
 
-            // Sign out khỏi external cookie (đã lưu session rồi)
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
             if (user.Role == "Admin")
@@ -253,7 +236,6 @@ namespace TechStoreWeb.Controllers
             return RedirectToAction("Index", "Home");
         }
 
-        // UC06: Chỉnh sửa thông tin cá nhân
         public IActionResult Profile()
         {
             var userId = HttpContext.Session.GetInt32("UserId");
@@ -281,7 +263,6 @@ namespace TechStoreWeb.Controllers
                     user.Email = updatedUser.Email;
                     user.PhoneNumber = updatedUser.PhoneNumber;
 
-                    // Nếu có đổi mật khẩu
                     if (!string.IsNullOrEmpty(updatedUser.Password))
                     {
                         if (updatedUser.Password.Length < 6)
@@ -303,7 +284,6 @@ namespace TechStoreWeb.Controllers
             return View(updatedUser);
         }
 
-        // Xem đơn hàng của tôi
         public IActionResult Orders()
         {
             var userId = HttpContext.Session.GetInt32("UserId");

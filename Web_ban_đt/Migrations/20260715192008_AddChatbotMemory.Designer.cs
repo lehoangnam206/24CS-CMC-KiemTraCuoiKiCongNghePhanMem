@@ -15,7 +15,6 @@ namespace TechStoreWeb.Migrations
     [Migration("20260715192008_AddChatbotMemory")]
     partial class AddChatbotMemory
     {
-        /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618

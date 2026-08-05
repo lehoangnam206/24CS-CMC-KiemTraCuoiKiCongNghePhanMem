@@ -21,16 +21,12 @@ namespace TechStoreWeb.Areas.Admin.Controllers
 
         private bool IsAdmin()
         {
-            return HttpContext.Session.GetString("Role") == "Admin";
+            return TechStoreWeb.Services.AdminPermissions.Can(
+                HttpContext, _context, TechStoreWeb.Services.AdminPermissions.Products);
         }
 
-        private bool HasAccess()
-        {
-            var role = HttpContext.Session.GetString("Role");
-            return role == "Admin" || role == "Employee";
-        }
+        private bool HasAccess() => IsAdmin();
 
-        // GET: Admin/Products
         public async Task<IActionResult> Index()
         {
             if (!HasAccess()) return RedirectToAction("Login", "Account", new { area = "" });
@@ -38,7 +34,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View(products);
         }
 
-        // GET: Admin/Products/Create
         public IActionResult Create()
         {
             if (!IsAdmin()) return RedirectToAction("Login", "Account", new { area = "" });
@@ -46,16 +41,14 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View();
         }
 
-        // POST: Admin/Products/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("ProductId,Name,Price,ImageUrl,CategoryId")] Product product)
+        public async Task<IActionResult> Create([Bind("ProductId,Name,Price,CostPrice,ImageUrl,CategoryId")] Product product)
         {
             if (!IsAdmin()) return RedirectToAction("Login", "Account", new { area = "" });
 
             if (ModelState.IsValid)
             {
-                // Validate if exists
                 if (_context.Products.Any(p => p.Name == product.Name))
                 {
                     ModelState.AddModelError("Name", "Tên sản phẩm đã tồn tại.");
@@ -72,7 +65,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View(product);
         }
 
-        // GET: Admin/Products/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
             if (!IsAdmin()) return RedirectToAction("Login", "Account", new { area = "" });
@@ -85,10 +77,9 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View(product);
         }
 
-        // POST: Admin/Products/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("ProductId,Name,Price,ImageUrl,CategoryId")] Product product)
+        public async Task<IActionResult> Edit(int id, [Bind("ProductId,Name,Price,CostPrice,ImageUrl,CategoryId")] Product product)
         {
             if (!IsAdmin()) return RedirectToAction("Login", "Account", new { area = "" });
             if (id != product.ProductId) return NotFound();
@@ -97,7 +88,15 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             {
                 try
                 {
-                    _context.Update(product);
+                    var existing = await _context.Products.FindAsync(id);
+                    if (existing == null) return NotFound();
+
+                    existing.Name = product.Name;
+                    existing.Price = product.Price;
+                    existing.CostPrice = product.CostPrice;
+                    existing.ImageUrl = product.ImageUrl;
+                    existing.CategoryId = product.CategoryId;
+
                     await _context.SaveChangesAsync();
                     TempData["SuccessMessage"] = "Cập nhật sản phẩm thành công.";
                 }
@@ -112,7 +111,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View(product);
         }
 
-        // POST: Admin/Products/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)

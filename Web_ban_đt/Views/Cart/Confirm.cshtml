@@ -184,6 +184,37 @@
                     else { <span class="badge bg-success text-white px-2 py-1 rounded">Tiền mặt (COD)</span> }
                 </span>
             </div>
+            @if (!string.IsNullOrWhiteSpace(Model.ReceiverName))
+            {
+                <div class="detail-row">
+                    <span class="detail-label">Người nhận:</span>
+                    <span class="detail-value">@Model.ReceiverName – @Model.ReceiverPhone</span>
+                </div>
+            }
+            <div class="detail-row">
+                <span class="detail-label">Giao đến:</span>
+                <span class="detail-value" style="text-align: right; max-width: 60%;">@Model.ShippingAddress</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Hình thức giao:</span>
+                <span class="detail-value">Tiêu chuẩn – 2 đến 4 ngày</span>
+            </div>
+            @if (Model.InsuranceFee > 0)
+            {
+                <div class="detail-row">
+                    <span class="detail-label">Bảo hiểm đơn hàng:</span>
+                    <span class="detail-value" style="color:#10b981; font-weight:700;">
+                        <i class="bi bi-shield-check"></i> Có (@Model.InsuranceFee.ToString("N0") đ)
+                    </span>
+                </div>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.Note))
+            {
+                <div class="detail-row">
+                    <span class="detail-label">Ghi chú:</span>
+                    <span class="detail-value" style="text-align: right; max-width: 60%; font-style: italic;">@Model.Note</span>
+                </div>
+            }
             <div class="detail-row" style="margin-top: 20px; padding-top: 20px; border-top: 2px dashed #e2e8f0;">
                 <span class="detail-label" style="font-weight: 700; color: #1e293b; font-size: 16px;">Tổng thanh toán:</span>
                 <span class="detail-value total">@Model.TotalAmount.ToString("N0") đ</span>

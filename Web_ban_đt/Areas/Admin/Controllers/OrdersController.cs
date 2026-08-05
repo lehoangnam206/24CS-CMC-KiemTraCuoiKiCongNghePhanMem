@@ -21,7 +21,8 @@ namespace TechStoreWeb.Areas.Admin.Controllers
 
         private bool IsAdmin()
         {
-            return HttpContext.Session.GetString("Role") == "Admin";
+            return TechStoreWeb.Services.AdminPermissions.Can(
+                HttpContext, _context, TechStoreWeb.Services.AdminPermissions.Orders);
         }
 
         public async Task<IActionResult> Index()

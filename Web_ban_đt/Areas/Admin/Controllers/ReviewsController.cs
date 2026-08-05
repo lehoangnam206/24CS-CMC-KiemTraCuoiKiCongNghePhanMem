@@ -44,7 +44,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
 
             var reviews = await query.OrderByDescending(r => r.CreatedAt).ToListAsync();
 
-            // Stats
             var allReviews = await _context.Reviews.ToListAsync();
             ViewBag.TotalReviews = allReviews.Count;
             ViewBag.AvgRating = allReviews.Count > 0 ? allReviews.Average(r => r.Rating) : 0;

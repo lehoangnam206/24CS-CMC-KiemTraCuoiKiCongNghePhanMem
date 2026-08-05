@@ -53,7 +53,7 @@ namespace TechStoreWeb.Services
                 };
             }
 
-            // Chốt ngân sách trước khi truy xuất để lọc đúng tầm giá khách nêu.
+
             var budget = ExtractBudget(message);
             if (budget.min.HasValue || budget.max.HasValue)
             {
@@ -70,7 +70,8 @@ namespace TechStoreWeb.Services
 
             UpdateMemory(memory, message, retrieved);
 
-            // Lịch sử hội thoại giúp hiểu câu hỏi nối tiếp kiểu "máy đó pin sao?".
+
+
             var history = await GetRecentTurnsAsync(customerKey, userId, cancellationToken);
 
             var context = BuildContext(retrieved);
@@ -79,9 +80,8 @@ namespace TechStoreWeb.Services
 
             if (llmResult.IsServiceUnavailable)
             {
-                // Khong luu luot nay: cau bao tri se bi nap lai lam ngu canh cho luot sau,
-                // khien tu van vien tuong minh vua tu choi khach va xin loi tiep. Nguon RAG
-                // cung khong hien vi chua he tu van gi de dan chung.
+
+
                 return new ChatbotAskResponse
                 {
                     Answer = MaintenanceAnswer,
@@ -115,7 +115,11 @@ namespace TechStoreWeb.Services
                     ProductId = result.Chunk.ProductId,
                     Score = (decimal)Math.Round(result.Score, 2)
                 }).ToList(),
+
+
                 Products = BuildProductCards(answer, retrieved),
+
+
                 Memory = ToDto(memory)
             };
         }
@@ -135,9 +139,6 @@ namespace TechStoreWeb.Services
                 })
                 .ToListAsync(cancellationToken);
 
-            // Thẻ máy không được lưu kèm tin nhắn mà dựng lại từ tên máy trong nội dung:
-            // mở lại khung chat cũ vẫn thấy ảnh, đồng thời giá và tồn kho luôn là số hiện tại
-            // chứ không phải số đóng băng lúc tư vấn.
             var catalogue = await _ragService.GetProductChunksAsync(cancellationToken);
             if (catalogue.Count == 0)
             {
@@ -182,7 +183,6 @@ namespace TechStoreWeb.Services
             return memory;
         }
 
-        /// <summary>Lấy vài lượt trao đổi gần nhất để mô hình hiểu ngữ cảnh câu hỏi nối tiếp.</summary>
         private async Task<IReadOnlyList<ChatbotHistoryItemDto>> GetRecentTurnsAsync(string customerKey, int? userId, CancellationToken cancellationToken)
         {
             var recent = await _context.ChatMessageLogs
@@ -222,11 +222,6 @@ namespace TechStoreWeb.Services
             await _context.SaveChangesAsync(cancellationToken);
         }
 
-        /// <summary>
-        /// Chặn theo hướng ngược lại với trước đây: mặc định cho qua, chỉ từ chối khi câu hỏi
-        /// có tín hiệu rõ ràng thuộc lĩnh vực khác. Việc giữ đúng chủ đề do system prompt đảm nhiệm,
-        /// nhờ vậy câu hỏi tự nhiên ("tài chính tôi 3tr", "shop có ship COD không") không bị đá oan.
-        /// </summary>
         private static bool IsClearlyOffTopic(string message)
         {
             var normalized = RemoveDiacritics(message).ToLowerInvariant();
@@ -239,10 +234,6 @@ namespace TechStoreWeb.Services
             return PromptInjectionSignals.Any(signal => ContainsWholeWord(normalized, signal));
         }
 
-        /// <summary>
-        /// So khớp theo ranh giới từ. Dùng Contains() thuần sẽ khiến "đang" dính "dan",
-        /// "thuộc" dính "thuoc"... và chặn nhầm hàng loạt câu hỏi bình thường.
-        /// </summary>
         private static bool ContainsWholeWord(string normalizedText, string normalizedNeedle)
         {
             return Regex.IsMatch(normalizedText, $@"(?<![a-z0-9]){Regex.Escape(normalizedNeedle)}(?![a-z0-9])");
@@ -260,9 +251,6 @@ namespace TechStoreWeb.Services
 
         private static void UpdateMemory(ChatCustomerMemory memory, string message, IReadOnlyList<RetrievedChatChunk> retrieved)
         {
-            // Chỉ ghi nhớ hãng do chính khách nhắc tới. Trước đây danh sách này gộp thêm hãng của
-            // kết quả vừa truy xuất, nên một hãng lỡ xuất hiện sẽ bám vĩnh viễn vào bộ nhớ, được
-            // nối vào truy vấn lượt sau và tự cộng điểm cho chính nó - khách bị khoá vào một hãng.
             var brands = new[] { "iPhone", "Samsung", "Xiaomi", "Oppo", "Honor", "Huawei", "Nokia", "Tecno" }
                 .Where(brand => ContainsIgnoreAccent(message, brand))
                 .Take(6);
@@ -285,7 +273,6 @@ namespace TechStoreWeb.Services
             @"(?:tu\s+)?(\d+(?:[.,]\d+)?)\s*(?:tr|trieu|cu|chai)?\s*(?:-|–|den|toi)\s*(\d+(?:[.,]\d+)?)\s*(tr|trieu|cu|chai|k|nghin|ngan)",
             RegexOptions.Compiled);
 
-        // "3tr5" = 3,5 triệu
         private static readonly Regex BudgetCompoundRegex = new(
             @"(\d+)\s*(tr|trieu|cu|chai)\s*(\d)(?![\d])",
             RegexOptions.Compiled);
@@ -294,15 +281,10 @@ namespace TechStoreWeb.Services
             @"(\d+(?:[.,]\d+)?)\s*(tr|trieu|cu|chai|k|nghin|ngan|m)(?![a-z])",
             RegexOptions.Compiled);
 
-        /// <summary>
-        /// Nhận diện ngân sách từ lối nói tự nhiên: "3tr", "3 củ", "tầm 5 triệu",
-        /// "dưới 4tr", "trên 10 triệu", "từ 3 đến 5 triệu", "3tr5", "500k".
-        /// </summary>
         private static (decimal? min, decimal? max) ExtractBudget(string message)
         {
             var normalized = RemoveDiacritics(message).ToLowerInvariant();
 
-            // Khoảng giá tường minh: "3-5 trieu", "tu 3 den 5 trieu"
             var range = BudgetRangeRegex.Match(normalized);
             if (range.Success)
             {
@@ -338,20 +320,16 @@ namespace TechStoreWeb.Services
                 return (null, null);
             }
 
-            // Dùng so khớp nguyên từ: "hon" theo kiểu chuỗi con sẽ dính vào "Honor".
             if (ContainsAnyWord(normalized, "duoi", "toi da", "khong qua", "it hon", "khong den", "re hon"))
             {
                 return (null, value);
             }
 
-            // Không dùng "tu" ở đây: nó khớp cả chữ "tư" trong "tư vấn".
-            // Trường hợp "từ 3 đến 5 triệu" đã do BudgetRangeRegex xử lý.
             if (ContainsAnyWord(normalized, "tren", "tro len", "lon hon", "cao hon"))
             {
                 return (value, null);
             }
 
-            // Mặc định coi là "tầm khoảng": nới ±15% cho dễ tìm máy phù hợp.
             return (value * 0.85m, value * 1.15m);
         }
 
@@ -493,12 +471,6 @@ namespace TechStoreWeb.Services
             return parts.Length > 1 ? parts[^1].Trim() : null;
         }
 
-        /// <summary>
-        /// Model có lúc chép sai giá dù bảng thông số đã nằm sẵn trong ngữ cảnh (đã bắt gặp
-        /// "Xiaomi 17 Ultra 6.850.000" trong khi kho ghi 4.350.000). Sai giá là sai cam kết với
-        /// khách nên thử lại một lần với nhắc nhở nghiêm ngặt, vẫn sai thì trả lời bằng dữ liệu
-        /// thô lấy thẳng từ kho - kém trau chuốt nhưng chắc chắn đúng.
-        /// </summary>
         private async Task<string> RegenerateWithoutInventedPriceAsync(
             string message,
             ChatCustomerMemory memory,
@@ -522,10 +494,6 @@ namespace TechStoreWeb.Services
             return BuildFallbackAnswer(message, memory, retrieved);
         }
 
-        /// <summary>
-        /// Mọi số tiền trong câu trả lời phải xuất hiện nguyên văn trong dữ liệu đã gửi cho model.
-        /// Chỉ soi số từ 7 chữ số trở lên để không đụng vào thông số kỹ thuật (6000 mAh, 108 MP).
-        /// </summary>
         private static bool HasInventedMoney(string answer, string prompt)
         {
             var allowed = MoneyRegex.Matches(prompt)
@@ -552,11 +520,6 @@ namespace TechStoreWeb.Services
         private const string PriceGuardReminder =
             "QUAN TRONG: Cau tra loi truoc da ghi sai gia. Moi con so ve gia phai chep nguyen van tu bang thong so trong ngu canh, khong lam tron, khong uoc luong, khong lay gia may khac. Neu ngu canh khong co gia thi noi la dang cap nhat.";
 
-        /// <summary>
-        /// Dựng thẻ máy kèm ảnh cho câu trả lời. Chỉ lấy máy được nhắc đích danh trong câu trả lời,
-        /// vì kho truy xuất luôn trả về nhiều máy hơn số máy tư vấn viên thực sự gợi ý - gắn thẻ
-        /// cho máy không được nhắc sẽ khiến khách hiểu nhầm là shop đang chào máy đó.
-        /// </summary>
         private static IReadOnlyList<ChatbotProductCardDto> BuildProductCards(string answer, IReadOnlyList<RetrievedChatChunk> retrieved)
         {
             var candidates = retrieved
@@ -579,8 +542,6 @@ namespace TechStoreWeb.Services
                 .Select(item => item.Result)
                 .ToList();
 
-            // Khong doi chieu duoc ten may (vi du cau tra loi bao tri hoac hoi lai)
-            // thi khong doan bua, de trong con hon hien sai may.
             if (mentioned.Count == 0)
             {
                 return Array.Empty<ChatbotProductCardDto>();
@@ -600,20 +561,11 @@ namespace TechStoreWeb.Services
                 .ToList();
         }
 
-        /// <summary>
-        /// Tên trong kho ("Xiaomi Dien Thoai Xiaomi 17 Ultra Den") dài hơn tên tư vấn viên viết
-        /// ("Xiaomi 17 Ultra") nên so khớp nguyên chuỗi luôn trượt. Chấm theo tỉ lệ từ khoá trùng,
-        /// bắt buộc trùng cả hãng lẫn phần mã model có chữ số. Thiếu điều kiện hãng thì
-        /// "Nokia Model 01" sẽ ăn theo chữ "Model 01" của "Huawei Model 01".
-        /// </summary>
         private static double MentionScore(string normalizedAnswer, string productName, string brand)
         {
             var normalizedBrand = RemoveDiacritics(brand ?? string.Empty).ToLowerInvariant().Trim();
             if (!string.IsNullOrEmpty(normalizedBrand) && !normalizedBrand.Equals("khac", StringComparison.Ordinal))
             {
-                // Contains() rẻ hơn regex nhiều và loại sớm gần hết kho khi dựng lại lịch sử
-                // (đối chiếu cả trăm máy cho từng tin nhắn cũ). Khớp nguyên từ luôn kéo theo
-                // khớp chuỗi con, nên lọc trước bằng Contains không bỏ sót trường hợp nào.
                 if (!normalizedAnswer.Contains(normalizedBrand, StringComparison.Ordinal) ||
                     !ContainsWholeWord(normalizedAnswer, normalizedBrand))
                 {
@@ -633,8 +585,6 @@ namespace TechStoreWeb.Services
                 return 0;
             }
 
-            // So khop theo ranh gioi tu, khong dung Contains: ma may "08" se an theo
-            // "108mp" trong cau "camera 108MP" va hien the mot may khong he duoc nhac.
             var matched = tokens.Count(token => ContainsWholeWord(normalizedAnswer, token));
             var modelTokens = tokens.Where(token => token.Any(char.IsDigit)).ToList();
 
@@ -712,10 +662,6 @@ namespace TechStoreWeb.Services
             return $"tren {FormatVnd(memory.BudgetMin!.Value)}";
         }
 
-        /// <summary>
-        /// Máy có nhiều phiên bản dung lượng thì ghi "Từ ..." để không chọi với giá bản cao
-        /// mà tư vấn viên trích trong câu trả lời.
-        /// </summary>
         private static string FormatPriceRange(ChatDocumentChunk chunk)
         {
             if (!chunk.Price.HasValue)
@@ -734,10 +680,6 @@ namespace TechStoreWeb.Services
             return value.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) + " VND";
         }
 
-        /// <summary>
-        /// Lĩnh vực rõ ràng không thuộc phạm vi tư vấn. Danh sách cố ý ngắn và cụ thể:
-        /// thà để lọt vài câu lạc đề (system prompt sẽ từ chối) còn hơn chặn nhầm khách thật.
-        /// </summary>
         private static readonly string[] OffTopicSignals =
         {
             "thoi tiet", "bong da", "chung khoan", "xo so", "tu vi", "boi toan", "tarot",
@@ -746,9 +688,6 @@ namespace TechStoreWeb.Services
             "lap trinh", "viet code", "python", "javascript", "sql injection"
         };
 
-        /// <summary>
-        /// Bỏ "dan" (khớp nhầm "đang", "dân") — chuỗi quá ngắn và mơ hồ để làm tín hiệu injection.
-        /// </summary>
         private static readonly string[] PromptInjectionSignals =
         {
             "ignore previous", "ignore all previous", "bo qua huong dan", "bo qua chi dan", "quen tat ca", "forget all",

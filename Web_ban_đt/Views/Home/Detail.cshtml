@@ -36,7 +36,6 @@
             align-items: start;
         }
 
-        /* LEFT COLUMN - Image Presentation */
         .detail-image-card {
             background: #f8fafc;
             border-radius: var(--radius-xl);
@@ -60,7 +59,6 @@
 
         .detail-image-card:hover img { transform: scale(1.05) translateY(-10px); }
 
-        /* RIGHT COLUMN - Info & Purchase */
         .detail-right-col {
             display: flex;
             flex-direction: column;
@@ -127,7 +125,6 @@
             margin-bottom: 8px;
         }
 
-        /* Variants */
         .variant-section { margin-bottom: 16px; }
         
         .variant-label {
@@ -171,7 +168,45 @@
 
         .variant-price { font-size: 13px; color: var(--text-muted); font-weight: 500; }
 
-        /* Quantity & Actions */
+        .variant-stock { font-size: 12px; color: #10b981; font-weight: 600; margin-top: 2px; }
+
+        .variant-btn.disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            background: rgba(0,0,0,0.02);
+        }
+        .variant-btn.disabled:hover { transform: none; border-color: rgba(0,0,0,0.1); }
+        .variant-btn.disabled .variant-stock { color: #ef4444; }
+
+        .detail-status-badge.out-of-stock {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+
+        .detail-old-price {
+            font-size: 17px;
+            color: var(--text-muted);
+            text-decoration: line-through;
+            font-weight: 500;
+        }
+
+        .detail-discount-badge {
+            font-size: 13px;
+            font-weight: 800;
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+            padding: 4px 10px;
+            border-radius: var(--radius-pill);
+        }
+
+        .detail-btn-buy:disabled,
+        .detail-btn-cart:disabled,
+        .detail-quantity-control button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: grayscale(1);
+        }
+
         .detail-quantity-section {
             display: flex;
             align-items: center;
@@ -269,7 +304,6 @@
             transform: scale(1.1);
         }
 
-        /* Specs Table */
         .detail-specs-card {
             background: var(--surface-color);
             border-radius: var(--radius-xl);
@@ -312,7 +346,6 @@
         .spec-label { color: var(--text-muted); font-weight: 600; width: 140px; }
         .spec-value { color: var(--text-main); font-weight: 500; }
 
-        /* Reviews */
         .reviews-section {
             background: var(--surface-color);
             border-radius: var(--radius-xl);
@@ -375,18 +408,50 @@
                         </div>
                     </div>
 
+                    @{
+                        var availableStock = Model.AvailableStock;
+                        var isSoldOut = availableStock <= 0;
+                        var hasDiscount = Model.Product.OriginalPrice.HasValue
+                                          && Model.Product.OriginalPrice.Value > Model.Product.Price;
+                    }
+
                     <div class="detail-status-row">
-                        <div class="detail-status-badge"><i class="bi bi-check2"></i> Còn hàng</div>
+                        @if (isSoldOut)
+                        {
+                            <div class="detail-status-badge out-of-stock"><i class="bi bi-x-circle"></i> Hết hàng</div>
+                        }
+                        else
+                        {
+                            <div class="detail-status-badge"><i class="bi bi-check2"></i> Còn hàng</div>
+                        }
                         <div style="font-size: 13px; color: var(--text-muted); font-weight: 500;">Mã SP: SP@(Model.Product.ProductId.ToString("D4"))</div>
                     </div>
 
                     <div class="detail-price-section">
-                        <div class="detail-price" id="displayPrice">@Model.Product.Price.ToString("N0")đ</div>
-                        <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 4px; font-weight: 500;">
+                        <div style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;">
+                            <div class="detail-price" id="displayPrice">@Model.Product.Price.ToString("N0")đ</div>
+                            @if (hasDiscount)
+                            {
+                                var percentOff = (int)Math.Round((1 - Model.Product.Price / Model.Product.OriginalPrice.Value) * 100);
+                                <div class="detail-old-price">@Model.Product.OriginalPrice.Value.ToString("N0")đ</div>
+                                <div class="detail-discount-badge">-@percentOff%</div>
+                            }
+                        </div>
+                        <div style="font-size: 14px; color: var(--text-muted); margin: 8px 0 4px; font-weight: 500;">
                             <i class="bi bi-shield-check" style="color: #10b981; margin-right: 4px;"></i> Bảo hành chính hãng 12 tháng
                         </div>
                         <div style="font-size: 14px; color: var(--text-muted); font-weight: 500;">
-                            <i class="bi bi-box-seam" style="color: var(--primary-color); margin-right: 4px;"></i> Còn @Model.Product.Stock sản phẩm trong kho
+                            <i class="bi bi-box-seam" style="color: var(--primary-color); margin-right: 4px;"></i>
+                            <span id="stockText">
+                                @if (isSoldOut)
+                                {
+                                    <text>Tạm hết hàng</text>
+                                }
+                                else
+                                {
+                                    <text>Còn @availableStock sản phẩm trong kho</text>
+                                }
+                            </span>
                         </div>
                     </div>
 
@@ -398,12 +463,24 @@
                                 @foreach (var variant in Model.Variants)
                                 {
                                     var variantPrice = variant.Price ?? Model.Product.Price;
-                                    <div class="variant-btn"
+                                    var variantSoldOut = variant.Stock <= 0;
+                                    <div class="variant-btn @(variantSoldOut ? "disabled" : "")"
                                          data-variant-id="@variant.VariantId"
                                          data-price="@variantPrice"
+                                         data-stock="@variant.Stock"
                                          onclick="selectVariant(this)">
                                         <div class="variant-title">@variant.Color @variant.ROM</div>
                                         <div class="variant-price">@variantPrice.ToString("N0")đ</div>
+                                        <div class="variant-stock">
+                                            @if (variantSoldOut)
+                                            {
+                                                <text>Hết hàng</text>
+                                            }
+                                            else
+                                            {
+                                                <text>Còn @variant.Stock</text>
+                                            }
+                                        </div>
                                     </div>
                                 }
                             </div>
@@ -413,9 +490,9 @@
                     <div class="detail-quantity-section">
                         <span class="detail-quantity-label">Số lượng</span>
                         <div class="detail-quantity-control">
-                            <button type="button" onclick="changeQty(-1)"><i class="bi bi-dash"></i></button>
-                            <input type="number" id="detailQty" value="1" min="1" max="99" readonly />
-                            <button type="button" onclick="changeQty(1)"><i class="bi bi-plus"></i></button>
+                            <button type="button" onclick="changeQty(-1)" @(isSoldOut ? "disabled" : "")><i class="bi bi-dash"></i></button>
+                            <input type="number" id="detailQty" value="@(isSoldOut ? 0 : 1)" min="@(isSoldOut ? 0 : 1)" max="@availableStock" readonly data-max-stock="@availableStock" />
+                            <button type="button" onclick="changeQty(1)" @(isSoldOut ? "disabled" : "")><i class="bi bi-plus"></i></button>
                         </div>
                     </div>
 
@@ -426,10 +503,10 @@
                             <input type="hidden" name="variantId" id="hiddenVariantId" value="" />
                             <input type="hidden" name="qty" id="hiddenQty" value="1" />
 
-                            <button type="submit" class="detail-btn-buy" name="action" value="buy">
-                                Mua ngay
+                            <button type="submit" class="detail-btn-buy" name="action" value="buy" @(isSoldOut ? "disabled" : "")>
+                                @(isSoldOut ? "Hết hàng" : "Mua ngay")
                             </button>
-                            <button type="submit" class="detail-btn-cart" name="action" value="cart" title="Thêm vào giỏ hàng">
+                            <button type="submit" class="detail-btn-cart" name="action" value="cart" title="Thêm vào giỏ hàng" @(isSoldOut ? "disabled" : "")>
                                 <i class="bi bi-bag-plus"></i>
                             </button>
                         </form>
@@ -579,7 +656,7 @@
 @section Scripts {
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const firstVariant = document.querySelector('.variant-btn');
+            const firstVariant = document.querySelector('.variant-btn:not(.disabled)');
             if (firstVariant) {
                 selectVariant(firstVariant);
             }
@@ -596,12 +673,12 @@
                     const inputs = form.querySelectorAll('input[name]');
                     inputs.forEach(inp => params.append(inp.name, inp.value));
                     
-                    // Gia tri cua nut bam khong nam trong input[name] nen phai gui tay,
-                    // dung ten 'action' giong luc form post thuong de server xu ly nhu nhau.
                     params.append('action', isBuy ? 'buy' : 'cart');
 
+                    const actionUrl = form.getAttribute('action') || '/Cart/Add';
+
                     try {
-                        const response = await fetch(form.action, {
+                        const response = await fetch(actionUrl, {
                             method: 'POST',
                             body: params,
                             headers: {
@@ -633,33 +710,74 @@
                                 alert('Có lỗi xảy ra: ' + (result.message || ''));
                             }
                         } else {
-                            form.submit();
+                            fallbackSubmit(isBuy);
                         }
                     } catch (error) {
-                        form.submit();
+                        fallbackSubmit(isBuy);
                     }
                 });
             }
         });
 
+        function fallbackSubmit(isBuy) {
+            const form = document.getElementById('addToCartForm');
+            let hidden = form.querySelector('input[type="hidden"][name="action"]');
+            if (!hidden) {
+                hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = 'action';
+                form.appendChild(hidden);
+            }
+            hidden.value = isBuy ? 'buy' : 'cart';
+            HTMLFormElement.prototype.submit.call(form);
+        }
+
         function selectVariant(element) {
+            const stock = parseInt(element.getAttribute('data-stock'));
+            if (!isNaN(stock) && stock <= 0) return;
+
             document.querySelectorAll('.variant-btn').forEach(btn => btn.classList.remove('active'));
             element.classList.add('active');
 
             const price = parseFloat(element.getAttribute('data-price'));
             document.getElementById('displayPrice').innerText = new Intl.NumberFormat('vi-VN').format(price) + 'đ';
 
-            // Chỉ gửi VariantId lên server; giá và tên do server tự tra từ DB.
             document.getElementById('hiddenVariantId').value = element.getAttribute('data-variant-id');
+
+            if (!isNaN(stock)) {
+                const stockText = document.getElementById('stockText');
+                if (stockText) {
+                    stockText.textContent = stock > 0
+                        ? 'Còn ' + stock + ' sản phẩm trong kho'
+                        : 'Tạm hết hàng';
+                }
+
+                const input = document.getElementById('detailQty');
+                if (input) {
+                    input.dataset.maxStock = stock;
+                    input.max = stock;
+                    if (parseInt(input.value) > stock) {
+                        input.value = Math.max(1, stock);
+                        document.getElementById('hiddenQty').value = input.value;
+                    }
+                }
+            }
         }
 
         function changeQty(delta) {
             const input = document.getElementById('detailQty');
             const hidden = document.getElementById('hiddenQty');
+            const maxStock = parseInt(input.dataset.maxStock) || 0;
+            if (maxStock <= 0) return;
+
             let val = parseInt(input.value) || 1;
-            val = Math.max(1, Math.min(99, val + delta));
+            val = Math.max(1, Math.min(maxStock, val + delta));
             input.value = val;
             hidden.value = val;
+
+            if (delta > 0 && val === maxStock) {
+                showToast('Chỉ còn ' + maxStock + ' sản phẩm trong kho');
+            }
         }
 
         const stars = document.querySelectorAll('.rating-select i');

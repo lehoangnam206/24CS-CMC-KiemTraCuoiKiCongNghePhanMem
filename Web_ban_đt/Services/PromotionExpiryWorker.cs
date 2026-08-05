@@ -1,9 +1,5 @@
 namespace TechStoreWeb.Services
 {
-    /// <summary>
-    /// Định kỳ tính lại giá khuyến mại để chương trình tự bắt đầu khi tới StartDate
-    /// và tự gỡ khi qua EndDate mà không cần admin bấm tay.
-    /// </summary>
     public class PromotionExpiryWorker : BackgroundService
     {
         private static readonly TimeSpan Interval = TimeSpan.FromMinutes(10);

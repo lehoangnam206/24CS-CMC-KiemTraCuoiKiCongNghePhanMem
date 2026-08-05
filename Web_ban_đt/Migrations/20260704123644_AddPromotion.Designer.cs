@@ -15,7 +15,6 @@ namespace TechStoreWeb.Migrations
     [Migration("20260704123644_AddPromotion")]
     partial class AddPromotion
     {
-        /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618

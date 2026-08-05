@@ -368,7 +368,40 @@ FodyWeavers.xsd
 appsettings.Production.json
 appsettings.*.Production.json
 
-# Goi deploy
+# Goi deploy - chua secret trong appsettings.Production.json, khong commit
 deploy-techblue/
+publish-techblue/
+publish-techblue.zip
+deploy-techblue.zip
+update-fix500/
 deploy-techblue.zip
 publish/
+
+# ===== Publish output bi copy nham vao wwwroot - khong phai ma nguon =====
+**/wwwroot/*.dll
+**/wwwroot/*.exe
+**/wwwroot/*.pdb
+**/wwwroot/TechStoreWeb.deps.json
+**/wwwroot/TechStoreWeb.runtimeconfig.json
+**/wwwroot/TechStoreWeb.staticwebassets.endpoints.json
+**/wwwroot/dotnet-tools.json
+**/wwwroot/appsettings.json
+**/wwwroot/web.config
+**/wwwroot/runtimes/
+**/wwwroot/wwwroot/
+**/wwwroot/cs/
+**/wwwroot/de/
+**/wwwroot/es/
+**/wwwroot/fr/
+**/wwwroot/it/
+**/wwwroot/ja/
+**/wwwroot/ko/
+**/wwwroot/pl/
+**/wwwroot/pt-BR/
+**/wwwroot/ru/
+**/wwwroot/tr/
+**/wwwroot/zh-Hans/
+**/wwwroot/zh-Hant/
+
+# Ban nen deploy
+*.zip.bak

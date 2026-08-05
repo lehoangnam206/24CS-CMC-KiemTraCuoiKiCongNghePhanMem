@@ -1,3 +1,5 @@
+@using System.Linq
+@inject TechStoreWeb.Data.AppDbContext Db
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -15,7 +17,6 @@
             overflow-x: hidden;
         }
 
-        /* Loại bỏ nền xanh của Chrome Autofill cho tất cả ô nhập liệu */
         input:-webkit-autofill,
         input:-webkit-autofill:hover, 
         input:-webkit-autofill:focus, 
@@ -24,13 +25,11 @@
             -webkit-text-fill-color: #212529 !important;
         }
         
-        /* Bỏ viền xanh (focus ring) mặc định của Bootstrap */
         .form-control:focus, .form-select:focus, .form-check-input:focus, .btn:focus {
             box-shadow: none !important;
             border-color: #ced4da;
         }
 
-        /* Tech blue */
         .bg-techblue {
             background-color: #1a56db !important;
         }
@@ -135,7 +134,6 @@
             flex-grow: 1;
         }
 
-        /* Responsive */
         @@media (max-width: 768px) {
             .sidebar {
                 margin-left: -250px;
@@ -148,7 +146,6 @@
             }
         }
 
-        /* Cipher Logo Effect - Auto Matrix Rain */
         .btn-cipher {
             position: relative;
             display: inline-flex;
@@ -194,7 +191,6 @@
             pointer-events: none;
         }
 
-        /* Rain layer 1 */
         .btn-cipher::before {
             background-image: 
                 linear-gradient(to bottom, transparent 0%, rgba(26,86,219,0.1) 70%, rgba(26,86,219,0.6) 100%),
@@ -204,7 +200,6 @@
             animation: matrixRain 1.2s linear infinite;
         }
 
-        /* Rain layer 2 */
         .btn-cipher::after {
             background-image: 
                 linear-gradient(to bottom, transparent 0%, rgba(26,86,219,0.1) 60%, rgba(26,86,219,0.7) 100%);
@@ -230,18 +225,36 @@
         </div>
         @{
             var userRole = Context.Session.GetString("Role");
+
+            var perms = TechStoreWeb.Services.AdminPermissions.All
+                .ToDictionary(p => p.Key, p => TechStoreWeb.Services.AdminPermissions.Can(Context, Db, p.Key));
         }
         <ul class="sidebar-menu mt-3">
             <li><a href="/Admin/Reports" class="@(ViewContext.RouteData.Values["Controller"]?.ToString() == "Reports" ? "active" : "")"><i class="bi bi-graph-up"></i> Báo cáo thống kê</a></li>
-            <li><a href="/Admin/Products" class="@(ViewContext.RouteData.Values["Controller"]?.ToString() == "Products" ? "active" : "")"><i class="bi bi-phone"></i> Quản lý Sản phẩm</a></li>
+            @if (perms[TechStoreWeb.Services.AdminPermissions.Products])
+            {
+                <li><a href="/Admin/Products" class="@(ViewContext.RouteData.Values["Controller"]?.ToString() == "Products" ? "active" : "")"><i class="bi bi-phone"></i> Quản lý Sản phẩm</a></li>
+            }
             @if (userRole == "Admin")
             {
                 <li><a href="/Admin/Categories" class="@(ViewContext.RouteData.Values["Controller"]?.ToString() == "Categories" ? "active" : "")"><i class="bi bi-folder2-open"></i> Quản lý Danh mục</a></li>
+            }
+            @if (perms[TechStoreWeb.Services.AdminPermissions.Orders])
+            {
                 <li><a href="/Admin/Orders" class="@(ViewContext.RouteData.Values["Controller"]?.ToString() == "Orders" ? "active" : "")"><i class="bi bi-box-seam"></i> Quản lý Đơn hàng</a></li>
+            }
+            @if (userRole == "Admin")
+            {
                 <li><a href="/Admin/Employees" class="@(ViewContext.RouteData.Values["Controller"]?.ToString() == "Employees" ? "active" : "")"><i class="bi bi-person-badge"></i> Quản lý Nhân viên</a></li>
             }
-            <li><a href="/Admin/Customers" class="@(ViewContext.RouteData.Values["Controller"]?.ToString() == "Customers" ? "active" : "")"><i class="bi bi-people"></i> Quản lý Khách hàng</a></li>
-            <li><a href="/Admin/Promotions" class="@(ViewContext.RouteData.Values["Controller"]?.ToString() == "Promotions" ? "active" : "")"><i class="bi bi-tags"></i> Khuyến mại</a></li>
+            @if (perms[TechStoreWeb.Services.AdminPermissions.Customers])
+            {
+                <li><a href="/Admin/Customers" class="@(ViewContext.RouteData.Values["Controller"]?.ToString() == "Customers" ? "active" : "")"><i class="bi bi-people"></i> Quản lý Khách hàng</a></li>
+            }
+            @if (perms[TechStoreWeb.Services.AdminPermissions.Promotions])
+            {
+                <li><a href="/Admin/Promotions" class="@(ViewContext.RouteData.Values["Controller"]?.ToString() == "Promotions" ? "active" : "")"><i class="bi bi-tags"></i> Khuyến mại</a></li>
+            }
             <li><a href="/Admin/Reviews" class="@(ViewContext.RouteData.Values["Controller"]?.ToString() == "Reviews" ? "active" : "")"><i class="bi bi-chat-left-text"></i> Đánh giá sản phẩm</a></li>
             <li><a href="/" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Xem trang chủ</a></li>
             <li><a href="/Account/Logout" class="text-danger"><i class="bi bi-box-arrow-right"></i> Đăng xuất</a></li>

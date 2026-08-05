@@ -32,7 +32,6 @@ namespace TechStoreWeb.Data
                 .Property(memory => memory.BudgetMax)
                 .HasColumnType("decimal(18,2)");
 
-            // Mỗi sản phẩm chỉ xuất hiện một lần trong cùng một chương trình khuyến mại.
             modelBuilder.Entity<PromotionProduct>()
                 .HasIndex(pp => new { pp.PromotionId, pp.ProductId })
                 .IsUnique();

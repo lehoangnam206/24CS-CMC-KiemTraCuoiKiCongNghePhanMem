@@ -3,10 +3,6 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TechStoreWeb.Models
 {
-    /// <summary>
-    /// Liên kết chương trình khuyến mại với sản phẩm được áp dụng.
-    /// Giữ luôn giá gốc trước khi khuyến mại để khôi phục chính xác khi kết thúc.
-    /// </summary>
     [Table("PromotionProducts")]
     public class PromotionProduct
     {
@@ -17,7 +13,6 @@ namespace TechStoreWeb.Models
 
         public int ProductId { get; set; }
 
-        /// <summary>Giá niêm yết trước khi chương trình này áp dụng.</summary>
         [Column(TypeName = "decimal(18,2)")]
         public decimal OriginalPrice { get; set; }
 

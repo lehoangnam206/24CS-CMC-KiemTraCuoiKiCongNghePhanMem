@@ -62,11 +62,41 @@
                 <i class="bi bi-person text-primary me-2"></i> Thông tin Khách hàng
             </div>
             <div class="card-body">
-                <p class="mb-2"><strong>Họ tên:</strong> @Model.User?.FullName</p>
-                <p class="mb-2"><strong>Số điện thoại:</strong> @Model.User?.PhoneNumber</p>
-                <p class="mb-2"><strong>Email:</strong> @Model.User?.Email</p>
+                <p class="mb-2"><strong>Tài khoản đặt:</strong> @Model.User?.FullName</p>
+                <p class="mb-2"><strong>Email tài khoản:</strong> @Model.User?.Email</p>
                 <hr />
+                <p class="mb-2"><strong>Người nhận:</strong> @(string.IsNullOrWhiteSpace(Model.ReceiverName) ? Model.User?.FullName : Model.ReceiverName)</p>
+                <p class="mb-2"><strong>Số điện thoại:</strong> @(string.IsNullOrWhiteSpace(Model.ReceiverPhone) ? Model.User?.PhoneNumber : Model.ReceiverPhone)</p>
+                @if (!string.IsNullOrWhiteSpace(Model.ReceiverEmail))
+                {
+                    <p class="mb-2"><strong>Email nhận hoá đơn:</strong> @Model.ReceiverEmail</p>
+                }
                 <p class="mb-2"><strong>Địa chỉ giao hàng:</strong><br />@Model.ShippingAddress</p>
+                @if (!string.IsNullOrWhiteSpace(Model.Note))
+                {
+                    <p class="mb-2"><strong>Ghi chú:</strong><br /><span class="fst-italic">@Model.Note</span></p>
+                }
+                <hr />
+                <p class="mb-2">
+                    <strong>Giao hàng:</strong> Tiêu chuẩn
+                    @if (Model.ShippingFee > 0)
+                    {
+                        <text>(@Model.ShippingFee.ToString("N0") VNĐ)</text>
+                    }
+                </p>
+                <p class="mb-2">
+                    <strong>Bảo hiểm đơn hàng:</strong>
+                    @if (Model.InsuranceFee > 0)
+                    {
+                        <span class="badge bg-success-subtle text-success">
+                            <i class="bi bi-shield-check me-1"></i>Có – @Model.InsuranceFee.ToString("N0") VNĐ
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="text-muted">Không</span>
+                    }
+                </p>
                 <p class="mb-0"><strong>Phương thức thanh toán:</strong> @Model.PaymentMethod</p>
             </div>
         </div>
@@ -80,27 +110,61 @@
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="orderId" value="@Model.OrderId" />
                     
+                    @{
+                        var statusFlow = new List<(string Value, string Text)>
+                        {
+                            ("Pending", "Chờ xử lý"),
+                            ("WaitingForPickup", "Chờ lấy hàng"),
+                            ("PickedUp", "Đã lấy hàng"),
+                            ("Shipping", "Đang vận chuyển"),
+                            ("Delivered", "Đã giao")
+                        };
+                        int currentIndex = statusFlow.FindIndex(s => s.Value == Model.Status);
+                        bool isTerminal = Model.Status == "Cancelled" || Model.Status == "Delivered";
+
+                        var selectable = currentIndex >= 0
+                            ? statusFlow.Skip(currentIndex).ToList()
+                            : statusFlow;
+
+                        var currentText = currentIndex >= 0
+                            ? statusFlow[currentIndex].Text
+                            : (Model.Status == "Cancelled" ? "Đã hủy" : Model.Status);
+                    }
+
                     <div class="mb-3">
-                        <label class="form-label">Trạng thái hiện tại:</label>
-                        @{
-                            var statuses = new List<string> { "Pending", "WaitingForPickup", "PickedUp", "Shipping", "Delivered" };
-                            int currentIndex = statuses.IndexOf(Model.Status);
-                            bool isTerminal = Model.Status == "Cancelled" || Model.Status == "Delivered";
+                        <div class="mb-2">
+                            <span class="text-muted small">Trạng thái hiện tại:</span>
+                            <span class="fw-bold ms-1">@currentText</span>
+                        </div>
+
+                        @if (isTerminal)
+                        {
+                            <div class="alert alert-secondary py-2 px-3 mb-0 small">
+                                <i class="bi bi-lock-fill me-1"></i>
+                                @(Model.Status == "Cancelled"
+                                    ? "Đơn đã hủy — không thể cập nhật trạng thái."
+                                    : "Đơn đã giao — đây là trạng thái cuối, không thể thay đổi.")
+                            </div>
                         }
-                        <select name="status" class="form-select" @(isTerminal ? "disabled" : "")>
-                            <option value="Pending" selected="@(Model.Status == "Pending")" disabled="@(currentIndex > 0)">Chờ xử lý</option>
-                            <option value="WaitingForPickup" selected="@(Model.Status == "WaitingForPickup")" disabled="@(currentIndex > 1)">Chờ lấy hàng</option>
-                            <option value="PickedUp" selected="@(Model.Status == "PickedUp")" disabled="@(currentIndex > 2)">Đã lấy hàng</option>
-                            <option value="Shipping" selected="@(Model.Status == "Shipping")" disabled="@(currentIndex > 3)">Đang vận chuyển</option>
-                            <option value="Delivered" selected="@(Model.Status == "Delivered")">Đã giao</option>
-                            @if (Model.Status == "Cancelled")
-                            {
-                                <option value="Cancelled" selected>Đã hủy</option>
-                            }
-                        </select>
+                        else
+                        {
+                            <label class="form-label small text-muted">Chuyển sang:</label>
+                            <select name="status" class="form-select">
+                                @foreach (var s in selectable)
+                                {
+                                    <option value="@s.Value" selected="@(s.Value == Model.Status)">
+                                        @s.Text @(s.Value == Model.Status ? "(hiện tại)" : "")
+                                    </option>
+                                }
+                            </select>
+                            <div class="form-text">Chỉ có thể chuyển tới, không quay lại trạng thái trước đó.</div>
+                        }
                     </div>
-                    
-                    <button type="submit" class="btn btn-primary w-100" @(isTerminal ? "disabled" : "")>Cập nhật Trạng thái</button>
+
+                    @if (!isTerminal)
+                    {
+                        <button type="submit" class="btn btn-primary w-100">Cập nhật Trạng thái</button>
+                    }
                 </form>
             </div>
         </div>

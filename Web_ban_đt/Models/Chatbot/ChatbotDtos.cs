@@ -14,7 +14,6 @@ namespace TechStoreWeb.Models.Chatbot
         public ChatbotMemoryDto Memory { get; set; } = new();
     }
 
-    /// <summary>Thẻ máy hiện kèm câu trả lời: ảnh, giá và lối tắt sang trang chi tiết.</summary>
     public class ChatbotProductCardDto
     {
         public int ProductId { get; set; }

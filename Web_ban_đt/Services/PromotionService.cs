@@ -6,10 +6,8 @@ namespace TechStoreWeb.Services
 {
     public interface IPromotionService
     {
-        /// <summary>Tính lại giá bán của mọi sản phẩm nằm trong chương trình khuyến mại.</summary>
         Task<int> SyncAsync(CancellationToken cancellationToken = default);
 
-        /// <summary>Giá niêm yết gốc của sản phẩm, bỏ qua mọi khuyến mại đang áp.</summary>
         Task<decimal> GetBaselinePriceAsync(int productId, CancellationToken cancellationToken = default);
 
         bool IsRunningNow(Promotion promotion, DateTime now);
@@ -28,7 +26,6 @@ namespace TechStoreWeb.Services
 
         public bool IsRunningNow(Promotion promotion, DateTime now)
         {
-            // EndDate được coi là hết ngày (inclusive).
             return promotion.IsActive
                 && promotion.StartDate.Date <= now.Date
                 && now.Date <= promotion.EndDate.Date;
@@ -36,7 +33,6 @@ namespace TechStoreWeb.Services
 
         public async Task<decimal> GetBaselinePriceAsync(int productId, CancellationToken cancellationToken = default)
         {
-            // Nếu sản phẩm đã nằm trong một CTKM nào đó, giá gốc đã được ghi lại ở dòng liên kết.
             var recorded = await _context.PromotionProducts
                 .Where(pp => pp.ProductId == productId)
                 .Select(pp => (decimal?)pp.OriginalPrice)
@@ -78,7 +74,6 @@ namespace TechStoreWeb.Services
 
                 var baseline = productLinks[0].OriginalPrice;
 
-                // Nhiều CTKM cùng phủ một sản phẩm: lấy mức giảm cao nhất trong số đang chạy.
                 var bestDiscount = productLinks
                     .Where(l => l.Promotion != null && IsRunningNow(l.Promotion, now))
                     .Select(l => l.Promotion.DiscountPercentage)

@@ -36,6 +36,18 @@
                             <span asp-validation-for="Price" class="text-danger small mt-1 d-block"></span>
                         </div>
                         <div class="col-md-6">
+                            <label asp-for="CostPrice" class="form-label fw-semibold text-muted">Giá vốn (VNĐ)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-0 text-muted" style="border-top-left-radius: 10px; border-bottom-left-radius: 10px;">₫</span>
+                                <input asp-for="CostPrice" type="number" step="1000" min="0" class="form-control form-control-lg bg-light border-0" placeholder="VD: 22000000" style="border-top-right-radius: 10px; border-bottom-right-radius: 10px;" />
+                            </div>
+                            <div class="form-text">Giá nhập hàng – dùng để tính lợi nhuận trong báo cáo. Bỏ trống nếu chưa có.</div>
+                            <span asp-validation-for="CostPrice" class="text-danger small mt-1 d-block"></span>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
                             <label asp-for="ImageUrl" class="form-label fw-semibold text-muted">URL Hình ảnh</label>
                             <input asp-for="ImageUrl" class="form-control form-control-lg bg-light border-0" placeholder="/images/abc.jpg" required style="border-radius: 10px;" />
                             <span asp-validation-for="ImageUrl" class="text-danger small mt-1 d-block"></span>

@@ -15,9 +15,6 @@ namespace TechStoreWeb.Services
             decimal? budgetMax,
             CancellationToken cancellationToken);
 
-        /// <summary>
-        /// Toàn bộ máy trong kho, dùng để dựng lại thẻ sản phẩm cho lịch sử hội thoại cũ.
-        /// </summary>
         Task<IReadOnlyList<ChatDocumentChunk>> GetProductChunksAsync(CancellationToken cancellationToken);
     }
 
@@ -59,8 +56,6 @@ namespace TechStoreWeb.Services
 
             var results = DiversifyByBrand(ranked, Math.Max(1, limit));
 
-            // Khách nêu ngân sách nhưng câu hỏi quá chung chung nên không khớp từ khoá nào:
-            // vẫn gợi ý được máy trong tầm giá thay vì trả về rỗng.
             if (results.Count == 0 && (budgetMin.HasValue || budgetMax.HasValue))
             {
                 var withinBudget = chunks
@@ -75,12 +70,6 @@ namespace TechStoreWeb.Services
             return results;
         }
 
-        /// <summary>
-        /// Câu hỏi kiểu "liệt kê máy dưới 8tr" không khớp từ khoá nào nên mọi máy trong tầm giá
-        /// đều cùng điểm. LINQ sắp xếp ổn định nên khi hoà điểm thứ tự gốc (ProductId) được giữ,
-        /// khiến Take(n) chỉ lấy trúng hãng nằm đầu bảng. Xoay vòng theo hãng trong từng nhóm
-        /// cùng điểm để khách thấy đủ lựa chọn, đồng thời không phá thứ tự giữa các mức điểm khác nhau.
-        /// </summary>
         private static List<RetrievedChatChunk> DiversifyByBrand(IReadOnlyList<RetrievedChatChunk> ranked, int limit)
         {
             var results = new List<RetrievedChatChunk>(Math.Min(limit, ranked.Count));
@@ -130,9 +119,6 @@ namespace TechStoreWeb.Services
             return true;
         }
 
-        /// <summary>
-        /// Ưu tiên máy nằm trong tầm giá khách nêu, hạ điểm máy vượt ngân sách quá xa.
-        /// </summary>
         private static double BudgetScore(ChatDocumentChunk chunk, decimal? budgetMin, decimal? budgetMax)
         {
             if (!chunk.Price.HasValue || (!budgetMin.HasValue && !budgetMax.HasValue))
@@ -442,10 +428,6 @@ namespace TechStoreWeb.Services
             return matches.Select(match => int.TryParse(match.Value, out var value) ? value : 0).DefaultIfEmpty(0).Sum();
         }
 
-        /// <summary>
-        /// Chỉ loại các hư từ thật sự vô nghĩa. Trước đây danh sách này chứa "gia", "man", "pin"-liên quan
-        /// và "tam" nên câu hỏi về giá bị mất luôn từ khoá quan trọng nhất.
-        /// </summary>
         private static readonly HashSet<string> StopWords = new()
         {
             "toi", "minh", "ban", "cho", "can", "nen", "mua", "la", "va", "co", "khong",

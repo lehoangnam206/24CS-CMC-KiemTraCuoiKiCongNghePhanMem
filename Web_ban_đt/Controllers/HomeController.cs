@@ -18,19 +18,15 @@ namespace TechStoreWeb.Controllers
 
         public async Task<IActionResult> Index(int? categoryId, string searchString, int page = 1)
         {
-            // Lấy danh sách hãng điện thoại kèm sản phẩm để đưa ra Menu bên trái và menu bay
             ViewBag.Categories = await _context.Categories.Include(c => c.Products).ToListAsync();
 
-            // Lấy danh sách sản phẩm
             var productsQuery = _context.Products.Include(p => p.Category).AsQueryable();
 
-            // Nếu người dùng click vào 1 hãng, lọc sản phẩm theo hãng đó
             if (categoryId.HasValue)
             {
                 productsQuery = productsQuery.Where(p => p.CategoryId == categoryId);
             }
 
-            // Nếu người dùng tìm kiếm, lọc theo tên sản phẩm (case-insensitive)
             if (!string.IsNullOrWhiteSpace(searchString))
             {
                 var s = searchString.Trim();
@@ -49,6 +45,13 @@ namespace TechStoreWeb.Controllers
                 .Take(PageSize)
                 .ToListAsync();
 
+            var pageProductIds = products.Select(p => p.ProductId).ToList();
+            ViewBag.RatingSummaries = await _context.Reviews
+                .Where(r => pageProductIds.Contains(r.ProductId))
+                .GroupBy(r => r.ProductId)
+                .Select(g => new { ProductId = g.Key, Average = g.Average(r => (double)r.Rating), Count = g.Count() })
+                .ToDictionaryAsync(x => x.ProductId, x => new RatingSummary { Average = x.Average, Count = x.Count });
+
             ViewBag.CurrentPage = page;
             ViewBag.TotalPages = totalPages;
             ViewBag.TotalItems = totalItems;
@@ -57,7 +60,6 @@ namespace TechStoreWeb.Controllers
             return View(products);
         }
 
-        // GET: /Home/Detail/5
         public async Task<IActionResult> Detail(int? id)
         {
             if (id == null) return NotFound();
@@ -67,19 +69,15 @@ namespace TechStoreWeb.Controllers
 
             if (product == null) return NotFound();
 
-            // Tìm thông số kỹ thuật từ bảng ProductDetails theo tên sản phẩm
             var detail = await _context.ProductDetails
                 .FirstOrDefaultAsync(d => d.Name == product.Name);
 
-            // Lấy danh sách danh mục cho sidebar
             ViewBag.Categories = await _context.Categories.Include(c => c.Products).ToListAsync();
 
-            // Fetch variants
             var variants = await _context.ProductVariants
                 .Where(v => v.ProductId == product.ProductId)
                 .ToListAsync();
 
-            // Fetch reviews
             var reviews = await _context.Reviews
                 .Include(r => r.User)
                 .Where(r => r.ProductId == product.ProductId)
@@ -93,7 +91,6 @@ namespace TechStoreWeb.Controllers
                 var user = await _context.Users.FindAsync(sessionUserId.Value);
                 if (user != null)
                 {
-                    // Kiá»ƒm tra xem user Ä‘Ã£ tá»«ng mua sáº£n pháº©m nÃ y chÆ°a
                     canReview = await _context.Orders
                         .AnyAsync(o => o.UserId == user.UserId
                                     && o.Status == "Delivered"

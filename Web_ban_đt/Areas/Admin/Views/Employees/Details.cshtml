@@ -42,6 +42,38 @@
                     }
                 </div>
 
+                <div class="text-start mt-4">
+                    <div class="fw-bold mb-2" style="color: #1e293b;">
+                        <i class="bi bi-shield-lock me-1 text-primary"></i>Quyền được cấp
+                    </div>
+                    @if (Model.Role == "Admin")
+                    {
+                        <div class="text-muted small fst-italic">Toàn quyền quản trị hệ thống.</div>
+                    }
+                    else
+                    {
+                        var granted = TechStoreWeb.Services.AdminPermissions.All
+                            .Where(p => TechStoreWeb.Services.AdminPermissions.Contains(Model.Permissions, p.Key))
+                            .ToList();
+
+                        if (granted.Count == 0)
+                        {
+                            <div class="text-muted small fst-italic">Chưa được cấp quyền nào.</div>
+                        }
+                        else
+                        {
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach (var p in granted)
+                                {
+                                    <span class="badge" style="background: rgba(99, 102, 241, 0.1); color: #6366f1; padding: 6px 12px; border-radius: 20px; font-weight: 600;">
+                                        <i class="bi @p.Icon me-1"></i>@p.Label
+                                    </span>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+
                 @if (Model.Role != "Admin")
                 {
                     <form asp-action="ToggleLock" asp-route-id="@Model.UserId" method="post" class="mt-4">

@@ -1,315 +1,559 @@
-@model IEnumerable<TechStoreWeb.Models.Order>
+@model TechStoreWeb.Models.ReportsDashboardViewModel
 @{
     ViewData["Title"] = "Báo cáo Thống kê";
+
+    string RangeUrl(string r) => Url.Action("Index", "Reports", new { area = "Admin", range = r });
+
+    var statusTotal = Model.TotalOrders > 0 ? Model.TotalOrders : 1;
+    var pendingPct = Math.Round(Model.PendingOrders * 100.0 / statusTotal, 1);
+    var processingPct = Math.Round(Model.ProcessingOrders * 100.0 / statusTotal, 1);
+    var deliveredPct = Math.Round(Model.DeliveredOrders * 100.0 / statusTotal, 1);
+    var cancelledPct = Math.Round(Model.CancelledOrders * 100.0 / statusTotal, 1);
+
+    var maxTopQty = Model.TopProducts.Count > 0 ? Model.TopProducts.Max(p => p.QuantitySold) : 1;
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h3 class="mb-0 text-techblue">Báo cáo Thống kê</h3>
-    @if (Model != null && Model.Any())
-    {
-        <button onclick="window.print()" class="btn btn-secondary"><i class="bi bi-printer"></i> In Báo cáo</button>
-    }
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h3 class="mb-0 text-techblue fw-bold"><i class="bi bi-bar-chart-fill me-2"></i>Dashboard Thống kê</h3>
+    <button onclick="window.print()" class="btn btn-outline-secondary btn-print"><i class="bi bi-printer me-1"></i> In báo cáo</button>
 </div>
 
-@if (ViewBag.Message != null)
+<!-- Bộ lọc thời gian -->
+<div class="d-flex align-items-center gap-2 mb-4 flex-wrap filter-bar">
+    <span class="text-muted me-1">Lọc theo:</span>
+    <a href="@RangeUrl("today")" class="filter-pill @(Model.Range == "today" ? "active" : "")">Hôm nay</a>
+    <a href="@RangeUrl("7days")" class="filter-pill @(Model.Range == "7days" ? "active" : "")">7 ngày</a>
+    <a href="@RangeUrl("month")" class="filter-pill @(Model.Range == "month" ? "active" : "")">Tháng này</a>
+    <a href="@RangeUrl("year")" class="filter-pill @(Model.Range == "year" ? "active" : "")">Năm này</a>
+    <a href="@RangeUrl("all")" class="filter-pill @(Model.Range == "all" ? "active" : "")">Tất cả</a>
+</div>
+
+@if (!Model.HasData)
 {
     <div class="alert alert-info">
-        <i class="bi bi-info-circle me-2"></i> @ViewBag.Message
+        <i class="bi bi-info-circle me-2"></i> @Model.Message
     </div>
 }
-else if (Model != null && Model.Any())
+else
 {
-    <!-- Summary Cards -->
-    <div class="row mb-4">
-        <div class="col-md-6 mb-3">
-            <div class="report-card report-card-orders">
-                <div class="report-card-icon">
-                    <i class="bi bi-cart-check-fill"></i>
-                </div>
-                <div class="report-card-content">
-                    <span class="report-card-label">Tổng đơn hàng</span>
-                    <span class="report-card-value">@String.Format("{0:N0}", ViewBag.TotalOrders)</span>
+    <!-- ===== Thẻ tổng quan ===== -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="kpi-card kpi-blue">
+                <div class="kpi-icon"><i class="bi bi-cash-coin"></i></div>
+                <div class="kpi-label">Tổng doanh thu</div>
+                <div class="kpi-value">@Model.TotalRevenue.ToString("N0") đ</div>
+                <div class="kpi-sub">Chỉ tính đơn không hủy</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="kpi-card kpi-green">
+                <div class="kpi-icon"><i class="bi bi-graph-up-arrow"></i></div>
+                <div class="kpi-label">@(Model.ProfitIsEstimated ? "Lợi nhuận ước tính" : "Lợi nhuận")</div>
+                <div class="kpi-value">@Model.EstimatedProfit.ToString("N0") đ</div>
+                <div class="kpi-sub">
+                    @if (Model.ProfitIsEstimated)
+                    {
+                        <span title="Sản phẩm chưa nhập giá vốn được ước tính theo tỉ lệ mặc định">
+                            Doanh thu – giá vốn (@Model.CostCoveragePercent.ToString("0.#")% có giá vốn thật)
+                        </span>
+                    }
+                    else
+                    {
+                        <span>Doanh thu – giá vốn thực tế</span>
+                    }
                 </div>
             </div>
         </div>
-        <div class="col-md-6 mb-3">
-            <div class="report-card report-card-revenue">
-                <div class="report-card-icon">
-                    <i class="bi bi-cash-stack"></i>
+        <div class="col-xl-3 col-md-6">
+            <div class="kpi-card kpi-purple">
+                <div class="kpi-icon"><i class="bi bi-receipt"></i></div>
+                <div class="kpi-label">Giá trị TB đơn hàng</div>
+                <div class="kpi-value">@Model.AverageOrderValue.ToString("N0") đ</div>
+                <div class="kpi-sub">AOV – Average Order Value</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="kpi-card kpi-orange">
+                <div class="kpi-icon"><i class="bi bi-bag-check"></i></div>
+                <div class="kpi-label">Tổng đơn hàng</div>
+                <div class="kpi-value">@Model.TotalOrders.ToString("N0")</div>
+                <div class="kpi-sub">Tỉ lệ hủy: @Model.CancelRate.ToString("0.#")%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Trạng thái đơn hàng ===== -->
+    <h5 class="section-title"><i class="bi bi-clipboard-data me-2"></i>Trạng thái đơn hàng</h5>
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="status-tile status-pending">
+                <div class="status-icon"><i class="bi bi-hourglass-split"></i></div>
+                <div>
+                    <div class="status-number">@Model.PendingOrders</div>
+                    <div class="status-label">Chờ xử lý</div>
                 </div>
-                <div class="report-card-content">
-                    <span class="report-card-label">Tổng doanh thu</span>
-                    <span class="report-card-value">@String.Format("{0:N0}", ViewBag.TotalRevenue) VNĐ</span>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="status-tile status-processing">
+                <div class="status-icon"><i class="bi bi-truck"></i></div>
+                <div>
+                    <div class="status-number">@Model.ProcessingOrders</div>
+                    <div class="status-label">Đang xử lý</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="status-tile status-delivered">
+                <div class="status-icon"><i class="bi bi-check-circle"></i></div>
+                <div>
+                    <div class="status-number">@Model.DeliveredOrders</div>
+                    <div class="status-label">Đã giao</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="status-tile status-cancelled">
+                <div class="status-icon"><i class="bi bi-x-circle"></i></div>
+                <div>
+                    <div class="status-number">@Model.CancelledOrders</div>
+                    <div class="status-label">Đã hủy</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Bar Chart -->
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0 fw-bold">Thống kê đơn hàng theo ngày trong tuần</h5>
-                <div class="btn-group btn-group-sm" role="group" style="position: relative; z-index: 10;">
-                    <button type="button" class="btn btn-outline-primary active" id="btnOrders" onclick="switchChart('orders')">Đơn hàng</button>
-                    <button type="button" class="btn btn-outline-primary" id="btnRevenue" onclick="switchChart('revenue')">Doanh thu</button>
+    <!-- ===== Biểu đồ cột + Donut ===== -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-8">
+            <div class="panel h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <h5 class="panel-title mb-0"><i class="bi bi-bar-chart-line-fill me-2"></i><span id="chartTitle">Đơn hàng theo ngày trong tuần</span></h5>
+                    <div class="btn-group btn-group-sm chart-toggle">
+                        <button type="button" class="btn btn-primary active" id="btnOrders" onclick="switchChart('orders')">Đơn hàng</button>
+                        <button type="button" class="btn btn-outline-primary" id="btnRevenue" onclick="switchChart('revenue')">Doanh thu</button>
+                    </div>
                 </div>
+                <div class="chart-container" id="chartContainer"></div>
             </div>
-            <div class="chart-container" id="chartContainer" style="position: relative; z-index: 1;">
-                <!-- Chart sẽ được render bằng JS -->
+        </div>
+        <div class="col-xl-4">
+            <div class="panel h-100">
+                <h5 class="panel-title mb-3"><i class="bi bi-pie-chart-fill me-2"></i>Phân bổ trạng thái</h5>
+                <div class="d-flex justify-content-center mb-3">
+                    <svg viewBox="0 0 42 42" class="donut" id="statusDonut">
+                        <circle class="donut-ring" cx="21" cy="21" r="15.9155" fill="transparent" stroke="#f1f3f5" stroke-width="6"></circle>
+                    </svg>
+                </div>
+                <ul class="donut-legend">
+                    <li><span class="dot" style="background:#f59e0b"></span> Chờ xử lý <b>@pendingPct.ToString("0.#")%</b></li>
+                    <li><span class="dot" style="background:#3b82f6"></span> Đang xử lý <b>@processingPct.ToString("0.#")%</b></li>
+                    <li><span class="dot" style="background:#10b981"></span> Đã giao <b>@deliveredPct.ToString("0.#")%</b></li>
+                    <li><span class="dot" style="background:#ef4444"></span> Đã hủy <b>@cancelledPct.ToString("0.#")%</b></li>
+                </ul>
+                <div class="text-center mt-3">
+                    <div class="text-muted small">Tỉ lệ hủy đơn</div>
+                    <div class="cancel-rate @(Model.CancelRate > 10 ? "text-danger" : "text-success")">@Model.CancelRate.ToString("0.#")%</div>
+                    @if (Model.CancelRate > 10)
+                    {
+                        <span class="badge bg-danger-subtle text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Cần chú ý</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-success-subtle text-success"><i class="bi bi-check-circle me-1"></i>Ổn định</span>
+                    }
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Orders Table -->
-    <div class="card shadow-sm border-0">
-        <div class="card-body">
-            <h5 class="mb-3 fw-bold">Danh sách Đơn hàng Gần đây</h5>
-            <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Mã đơn</th>
-                            <th>Ngày đặt</th>
-                            <th>Khách hàng</th>
-                            <th>Tổng tiền</th>
-                            <th>Trạng thái</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var order in Model)
+    <!-- ===== Sản phẩm & Thương hiệu ===== -->
+    <h5 class="section-title"><i class="bi bi-trophy me-2"></i>Sản phẩm &amp; Thương hiệu</h5>
+    <div class="row g-3 mb-4">
+        <div class="col-xl-6">
+            <div class="panel h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="panel-title mb-0"><i class="bi bi-fire me-2 text-danger"></i>Top sản phẩm bán chạy</h5>
+                    <span class="badge bg-light text-muted border">Top 10</span>
+                </div>
+                @if (Model.TopProducts.Count == 0)
+                {
+                    <p class="text-muted mb-0">Chưa có sản phẩm nào được bán trong khoảng thời gian này.</p>
+                }
+                else
+                {
+                    <div class="rank-list">
+                        @for (int i = 0; i < Model.TopProducts.Count; i++)
                         {
-                            <tr>
-                                <td><span class="fw-bold">#@order.OrderId</span></td>
-                                <td>@order.OrderDate.ToString("dd/MM/yyyy HH:mm")</td>
-                                <td>@order.User.FullName</td>
-                                <td class="text-danger fw-bold">@order.TotalAmount.ToString("N0")</td>
-                                <td>
-                                    @{
-                                        var badgeClass = "bg-secondary";
-                                        var statusText = order.Status;
-                                        switch (order.Status)
-                                        {
-                                            case "Pending": badgeClass = "bg-warning text-dark"; statusText = "Chờ xử lý"; break;
-                                            case "WaitingForPickup": badgeClass = "bg-info text-dark"; statusText = "Chờ lấy hàng"; break;
-                                            case "PickedUp": badgeClass = "bg-primary"; statusText = "Đã lấy hàng"; break;
-                                            case "Shipping": badgeClass = "bg-info"; statusText = "Đang vận chuyển"; break;
-                                            case "Delivered": badgeClass = "bg-success"; statusText = "Đã giao"; break;
-                                            case "Cancelled": badgeClass = "bg-danger"; statusText = "Đã hủy"; break;
-                                        }
-                                    }
-                                    <span class="badge @badgeClass">@statusText</span>
-                                </td>
-                            </tr>
+                            var p = Model.TopProducts[i];
+                            var pct = maxTopQty > 0 ? (p.QuantitySold * 100.0 / maxTopQty) : 0;
+                            var pctCss = pct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "%";
+                            <div class="rank-row">
+                                <div class="rank-badge rank-@(i < 3 ? (i + 1).ToString() : "n")">@(i + 1)</div>
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <div class="min-w-0">
+                                            <div class="rank-name text-truncate">@p.Name</div>
+                                            <div class="rank-brand">@p.BrandName</div>
+                                        </div>
+                                    </div>
+                                    <div class="rank-bar-track">
+                                        <div class="rank-bar" style="width:@pctCss"></div>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="rank-qty">@p.QuantitySold sp</span>
+                                        <span class="rank-revenue">@p.Revenue.ToString("N0") đ</span>
+                                    </div>
+                                </div>
+                            </div>
                         }
-                    </tbody>
-                </table>
+                    </div>
+                }
             </div>
+        </div>
+        <div class="col-xl-6">
+            <div class="panel h-100">
+                <h5 class="panel-title mb-3"><i class="bi bi-diagram-3 me-2"></i>Doanh số theo thương hiệu</h5>
+                @if (Model.BrandSales.Count == 0)
+                {
+                    <p class="text-muted mb-0">Chưa có dữ liệu bán hàng theo thương hiệu.</p>
+                }
+                else
+                {
+                    foreach (var b in Model.BrandSales)
+                    {
+                        var brandPctCss = b.Percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "%";
+                        <div class="brand-row">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="brand-name">@b.BrandName</span>
+                                <span class="brand-percent">@b.Percent.ToString("0.#")%</span>
+                            </div>
+                            <div class="brand-bar-track">
+                                <div class="brand-bar" style="width:@brandPctCss"></div>
+                            </div>
+                            <div class="brand-meta">@b.Revenue.ToString("N0") đ · @b.QuantitySold sản phẩm</div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Tồn kho ===== -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-6">
+            <div class="panel h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="panel-title mb-0"><i class="bi bi-bell-fill me-2 text-danger"></i>Cảnh báo sắp hết hàng</h5>
+                    <span class="badge bg-danger-subtle text-danger">@Model.LowStockProducts.Count sản phẩm</span>
+                </div>
+                @if (Model.LowStockProducts.Count == 0)
+                {
+                    <p class="text-muted mb-0">Tất cả sản phẩm đều còn đủ tồn kho.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0 mini-table">
+                            <thead>
+                                <tr>
+                                    <th>Sản phẩm</th>
+                                    <th>Thương hiệu</th>
+                                    <th class="text-end">Tồn kho</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var p in Model.LowStockProducts)
+                                {
+                                    <tr>
+                                        <td class="fw-semibold">@p.Name</td>
+                                        <td class="text-muted">@p.BrandName</td>
+                                        <td class="text-end">
+                                            <span class="badge @(p.Stock <= 2 ? "bg-warning-subtle text-warning-emphasis" : "bg-success-subtle text-success")">
+                                                <i class="bi bi-exclamation-circle me-1"></i>@p.Stock
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="col-xl-6">
+            <div class="panel h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="panel-title mb-0"><i class="bi bi-arrow-down-circle me-2 text-warning"></i>Sản phẩm bán chậm</h5>
+                    <span class="badge bg-light text-muted border">Bottom 10</span>
+                </div>
+                @if (Model.SlowProducts.Count == 0)
+                {
+                    <p class="text-muted mb-0">Không có sản phẩm nào còn tồn kho.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0 mini-table">
+                            <thead>
+                                <tr>
+                                    <th>Sản phẩm</th>
+                                    <th class="text-center">Đã bán</th>
+                                    <th class="text-end">Tồn kho</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var p in Model.SlowProducts)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="fw-semibold">@p.Name</div>
+                                            <div class="text-muted small">@p.BrandName</div>
+                                        </td>
+                                        <td class="text-center">
+                                            @if (p.QuantitySold == 0)
+                                            {
+                                                <span class="badge bg-danger-subtle text-danger"><i class="bi bi-dash-circle me-1"></i>Chưa bán</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-light text-muted border">@p.QuantitySold sp</span>
+                                            }
+                                        </td>
+                                        <td class="text-end fw-semibold">@p.Stock</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Đơn hàng gần đây ===== -->
+    <div class="panel">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="panel-title mb-0"><i class="bi bi-list-ul me-2"></i>Danh sách đơn hàng (@Model.RangeLabel)</h5>
+            <span class="badge bg-light text-muted border">@Model.RecentOrders.Count đơn</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Mã đơn</th>
+                        <th>Ngày đặt</th>
+                        <th>Khách hàng</th>
+                        <th class="text-end">Tổng tiền</th>
+                        <th>Trạng thái</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var order in Model.RecentOrders)
+                    {
+                        <tr>
+                            <td>
+                                <a class="fw-bold text-decoration-none" href="@Url.Action("Details", "Orders", new { area = "Admin", id = order.OrderId })">#@order.OrderId</a>
+                            </td>
+                            <td class="text-muted">@order.OrderDate.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@(order.User?.FullName ?? "Khách vãng lai")</td>
+                            <td class="text-end fw-bold text-success">@order.TotalAmount.ToString("N0") đ</td>
+                            <td>
+                                @{
+                                    var badgeClass = "bg-secondary-subtle text-secondary";
+                                    var statusText = order.Status;
+                                    switch (order.Status)
+                                    {
+                                        case "Pending": badgeClass = "bg-warning-subtle text-warning-emphasis"; statusText = "Chờ xử lý"; break;
+                                        case "WaitingForPickup": badgeClass = "bg-info-subtle text-info-emphasis"; statusText = "Chờ lấy hàng"; break;
+                                        case "PickedUp": badgeClass = "bg-primary-subtle text-primary-emphasis"; statusText = "Đã lấy hàng"; break;
+                                        case "Shipping": badgeClass = "bg-info-subtle text-info-emphasis"; statusText = "Đang vận chuyển"; break;
+                                        case "Delivered": badgeClass = "bg-success-subtle text-success"; statusText = "Đã giao"; break;
+                                        case "Cancelled": badgeClass = "bg-danger-subtle text-danger"; statusText = "Đã hủy"; break;
+                                    }
+                                }
+                                <span class="badge rounded-pill @badgeClass">@statusText</span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
     </div>
 }
 
 <style>
-    /* ===== Summary Cards ===== */
-    .report-card {
-        display: flex;
-        align-items: center;
-        gap: 18px;
-        padding: 24px 28px;
-        border-radius: 16px;
+    .filter-pill {
+        display: inline-block;
+        padding: 8px 20px;
+        border-radius: 999px;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        color: #4b5563;
+        font-weight: 600;
+        font-size: .9rem;
+        text-decoration: none;
+        transition: all .15s;
+    }
+    .filter-pill:hover { border-color: #1a56db; color: #1a56db; }
+    .filter-pill.active {
+        background: #1a56db;
+        border-color: #1a56db;
         color: #fff;
-        position: relative;
-        overflow: hidden;
-        box-shadow: 0 8px 24px rgba(0,0,0,.12);
+        box-shadow: 0 4px 12px rgba(26,86,219,.25);
+    }
+
+    .kpi-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 22px 24px 20px;
+        height: 100%;
+        border-top: 4px solid #1a56db;
+        box-shadow: 0 4px 16px rgba(15,23,42,.06);
         transition: transform .2s, box-shadow .2s;
     }
-    .report-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 32px rgba(0,0,0,.18);
+    .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(15,23,42,.1); }
+    .kpi-icon {
+        width: 48px; height: 48px;
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.35rem; margin-bottom: 16px;
     }
-    .report-card-orders {
-        background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+    .kpi-label {
+        font-size: .8rem; font-weight: 600; color: #9ca3af;
+        text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px;
     }
-    .report-card-revenue {
-        background: linear-gradient(135deg, #06d6a0 0%, #118ab2 100%);
-    }
-    .report-card-icon {
-        width: 56px;
-        height: 56px;
-        border-radius: 14px;
-        background: rgba(255,255,255,.2);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.6rem;
-        flex-shrink: 0;
-        backdrop-filter: blur(4px);
-    }
-    .report-card-content {
-        display: flex;
-        flex-direction: column;
-    }
-    .report-card-label {
-        font-size: .9rem;
-        font-weight: 500;
-        opacity: .9;
-        text-transform: uppercase;
-        letter-spacing: .4px;
-    }
-    .report-card-value {
-        font-size: 1.6rem;
-        font-weight: 700;
-        line-height: 1.3;
-    }
+    .kpi-value { font-size: 1.75rem; font-weight: 700; color: #111827; line-height: 1.2; }
+    .kpi-sub { font-size: .8rem; color: #9ca3af; margin-top: 6px; }
 
-    /* ===== Bar Chart ===== */
-    .chart-container {
-        width: 100%;
-        padding: 20px 10px 0;
+    .kpi-blue { border-top-color: #1a56db; }
+    .kpi-blue .kpi-icon { background: #e0e7ff; color: #1a56db; }
+    .kpi-green { border-top-color: #10b981; }
+    .kpi-green .kpi-icon { background: #d1fae5; color: #059669; }
+    .kpi-purple { border-top-color: #8b5cf6; }
+    .kpi-purple .kpi-icon { background: #ede9fe; color: #7c3aed; }
+    .kpi-orange { border-top-color: #f59e0b; }
+    .kpi-orange .kpi-icon { background: #fef3c7; color: #d97706; }
+
+    .section-title { font-weight: 700; color: #1f2937; margin-bottom: 14px; }
+
+    .status-tile {
+        display: flex; align-items: center; gap: 16px;
+        padding: 20px 22px; border-radius: 16px; height: 100%;
     }
-    .chart-wrapper {
-        display: block;
-        height: 320px;
-        position: relative;
-        margin-left: 55px;
+    .status-icon {
+        width: 46px; height: 46px; border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.3rem; background: rgba(255,255,255,.75);
     }
-    /* Y-axis grid */
+    .status-number { font-size: 1.7rem; font-weight: 700; line-height: 1.1; }
+    .status-label { font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; opacity: .85; }
+    .status-pending { background: #fef7e0; color: #b45309; }
+    .status-processing { background: #e8f0fe; color: #1d4ed8; }
+    .status-delivered { background: #e6f7ee; color: #047857; }
+    .status-cancelled { background: #fdecec; color: #b91c1c; }
+
+    .panel {
+        background: #fff;
+        border-radius: 16px;
+        padding: 22px 24px;
+        box-shadow: 0 4px 16px rgba(15,23,42,.06);
+    }
+    .panel-title { font-size: 1.05rem; font-weight: 700; color: #1f2937; }
+
+    .donut { width: 190px; height: 190px; transform: rotate(-90deg); }
+    .donut-segment { transition: stroke-dasharray .8s cubic-bezier(.22,1,.36,1); }
+    .donut-legend { list-style: none; padding: 0; margin: 0; }
+    .donut-legend li {
+        display: flex; align-items: center; gap: 8px;
+        font-size: .88rem; color: #4b5563; padding: 5px 0;
+    }
+    .donut-legend li b { margin-left: auto; color: #111827; }
+    .donut-legend .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+    .cancel-rate { font-size: 2rem; font-weight: 700; line-height: 1.1; }
+
+    .rank-row { display: flex; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+    .rank-row:last-child { border-bottom: none; }
+    .min-w-0 { min-width: 0; }
+    .rank-badge {
+        width: 30px; height: 30px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: .82rem; color: #fff; flex-shrink: 0;
+        background: #cbd5e1;
+    }
+    .rank-1 { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+    .rank-2 { background: linear-gradient(135deg, #cbd5e1, #94a3b8); }
+    .rank-3 { background: linear-gradient(135deg, #fb923c, #ea580c); }
+    .rank-name { font-weight: 600; color: #111827; font-size: .95rem; }
+    .rank-brand { font-size: .78rem; color: #9ca3af; }
+    .rank-bar-track { height: 8px; background: #f1f3f5; border-radius: 999px; margin: 6px 0 4px; overflow: hidden; }
+    .rank-bar { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #3b82f6, #1a56db); }
+    .rank-qty { font-size: .82rem; font-weight: 700; color: #1a56db; }
+    .rank-revenue { font-size: .82rem; font-weight: 600; color: #059669; }
+
+    .brand-row { padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+    .brand-row:last-child { border-bottom: none; }
+    .brand-name { font-weight: 700; color: #111827; }
+    .brand-percent { font-weight: 700; color: #1a56db; font-size: .9rem; }
+    .brand-bar-track { height: 8px; background: #f1f3f5; border-radius: 999px; margin: 8px 0 6px; overflow: hidden; }
+    .brand-bar { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #60a5fa, #1a56db); }
+    .brand-meta { font-size: .8rem; color: #6b7280; }
+
+    .mini-table thead th {
+        font-size: .75rem; text-transform: uppercase; letter-spacing: .4px;
+        color: #9ca3af; font-weight: 600; border-bottom: 1px solid #e5e7eb;
+    }
+    .mini-table td { font-size: .9rem; }
+
+    .chart-container { width: 100%; padding: 10px 6px 0; }
+    .chart-wrapper { display: block; height: 320px; position: relative; margin-left: 60px; }
     .chart-y-axis {
-        position: absolute;
-        left: -55px;
-        top: 0;
-        bottom: 40px;
-        width: 55px;
-        display: flex;
-        flex-direction: column-reverse;
-        justify-content: space-between;
+        position: absolute; left: -60px; top: 0; bottom: 40px; width: 60px;
+        display: flex; flex-direction: column-reverse; justify-content: space-between;
     }
-    .chart-y-label {
-        font-size: .78rem;
-        color: #9ca3af;
-        text-align: right;
-        padding-right: 10px;
-        line-height: 1;
-    }
-    .chart-grid {
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 0;
-        bottom: 40px;
-    }
-    .chart-grid-line {
-        position: absolute;
-        left: 0;
-        right: 0;
-        border-top: 1px solid #f1f3f5;
-        height: 0;
-    }
-    /* Bars */
+    .chart-y-label { font-size: .75rem; color: #9ca3af; text-align: right; padding-right: 10px; line-height: 1; }
+    .chart-grid { position: absolute; left: 0; right: 0; top: 0; bottom: 40px; }
+    .chart-grid-line { position: absolute; left: 0; right: 0; border-top: 1px dashed #eef0f3; height: 0; }
     .chart-bars {
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 0;
-        bottom: 0;
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-around;
-        z-index: 2;
+        position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+        display: flex; align-items: flex-end; justify-content: space-around; z-index: 2;
     }
-    .chart-bar-group {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        flex: 1;
-        max-width: 80px;
-        height: 100%;
-    }
+    .chart-bar-group { display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 90px; height: 100%; }
     .chart-bar-wrapper {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-end;
-        height: 280px;
-        width: 100%;
-        position: relative;
+        display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+        height: 280px; width: 100%; position: relative;
     }
     .chart-bar {
-        width: 42px;
-        border-radius: 8px 8px 3px 3px;
-        position: relative;
-        cursor: pointer;
-        transition: height 0.8s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s, filter 0.2s;
-        min-height: 4px;
-        height: 0%;
+        width: 46px; border-radius: 8px 8px 3px 3px; position: relative; cursor: pointer;
+        transition: height .8s cubic-bezier(.22,1,.36,1), filter .2s;
+        min-height: 4px; height: 0%;
+        background: linear-gradient(180deg, #4f8df9 0%, #1a56db 100%);
     }
-    .chart-bar:hover {
-        filter: brightness(1.12);
-        transform: scaleX(1.08);
-    }
-    .chart-bar-0 { background: linear-gradient(180deg, #34d399 0%, #10b981 100%); }
-    .chart-bar-1 { background: linear-gradient(180deg, #4ade80 0%, #22c55e 100%); }
-    .chart-bar-2 { background: linear-gradient(180deg, #6ee7b7 0%, #34d399 100%); }
-    .chart-bar-3 { background: linear-gradient(180deg, #34d399 0%, #10b981 100%); }
-    .chart-bar-4 { background: linear-gradient(180deg, #4ade80 0%, #22c55e 100%); }
-    .chart-bar-5 { background: linear-gradient(180deg, #6ee7b7 0%, #34d399 100%); }
-    .chart-bar-6 { background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%); }
-
+    .chart-bar:hover { filter: brightness(1.12); }
     .chart-bar-value {
-        position: absolute;
-        top: -24px;
-        left: 50%;
-        transform: translateX(-50%);
-        font-size: .78rem;
-        font-weight: 600;
-        color: #374151;
-        white-space: nowrap;
-        opacity: 0;
-        transition: opacity .2s;
+        position: absolute; top: -24px; left: 50%; transform: translateX(-50%);
+        font-size: .78rem; font-weight: 600; color: #374151; white-space: nowrap;
+        opacity: 0; transition: opacity .2s;
     }
-    .chart-bar:hover .chart-bar-value {
-        opacity: 1;
-    }
+    .chart-bar:hover .chart-bar-value { opacity: 1; }
     .chart-bar-label {
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: .85rem;
-        color: #6b7280;
-        font-weight: 500;
-        text-align: center;
-        width: 100%;
-        margin-top: 0;
+        height: 40px; display: flex; align-items: center; justify-content: center;
+        font-size: .85rem; color: #6b7280; font-weight: 500; width: 100%;
     }
-
-    /* Tooltip */
     .chart-tooltip {
-        position: fixed;
-        padding: 8px 14px;
-        background: rgba(30, 41, 59, .92);
-        color: #fff;
-        border-radius: 8px;
-        font-size: .82rem;
-        pointer-events: none;
-        z-index: 999;
-        opacity: 0;
-        transition: opacity .15s;
-        white-space: nowrap;
-        backdrop-filter: blur(6px);
+        position: fixed; padding: 8px 14px; background: rgba(30,41,59,.92); color: #fff;
+        border-radius: 8px; font-size: .82rem; pointer-events: none; z-index: 999;
+        opacity: 0; transition: opacity .15s; white-space: nowrap;
     }
     .chart-tooltip.show { opacity: 1; }
+    .chart-toggle { position: relative; z-index: 10; }
 
-    /* Button Group Z-Index */
-    .btn-group {
-        position: relative;
-        z-index: 10;
-    }
-
-    /* Print */
     @@media print {
-        .report-card {
+        .btn-print, .filter-bar, .chart-toggle { display: none !important; }
+        .kpi-card, .panel, .status-tile {
             box-shadow: none !important;
+            border: 1px solid #e5e7eb;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
@@ -317,124 +561,140 @@ else if (Model != null && Model.Any())
 </style>
 
 @section Scripts {
-    <script>
-        // Dữ liệu từ server
-        const ordersData = [@Html.Raw(string.Join(",", (int[])ViewBag.OrdersByDayOfWeek))];
-        const revenueData = [@Html.Raw(string.Join(",", ((decimal[])ViewBag.RevenueByDayOfWeek).Select(r => r.ToString("0"))))];
-        const dayLabels = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN'];
+    @if (Model.HasData)
+    {
+        <script>
+            const ordersData = [@Html.Raw(string.Join(",", Model.OrdersByDayOfWeek))];
+            const revenueData = [@Html.Raw(string.Join(",", Model.RevenueByDayOfWeek.Select(r => r.ToString("0"))))];
+            const dayLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+            const dayFullLabels = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
 
-        let currentChart = 'orders';
+            const statusData = [
+                { label: 'Chờ xử lý', value: @Model.PendingOrders, color: '#f59e0b' },
+                { label: 'Đang xử lý', value: @Model.ProcessingOrders, color: '#3b82f6' },
+                { label: 'Đã giao', value: @Model.DeliveredOrders, color: '#10b981' },
+                { label: 'Đã hủy', value: @Model.CancelledOrders, color: '#ef4444' }
+            ];
 
-        function formatNumber(n) {
-            return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-        }
-
-        function renderChart(dataArr, labels, isRevenue) {
-            const container = document.getElementById('chartContainer');
-            const maxVal = Math.max(...dataArr, 1);
-
-            // Tính các mốc trục Y (5 mốc)
-            const steps = 5;
-            const niceMax = Math.ceil(maxVal / steps) * steps;
-            const stepVal = niceMax / steps;
-
-            let html = '<div class="chart-wrapper">';
-
-            // Y axis labels
-            html += '<div class="chart-y-axis">';
-            for (let i = 0; i <= steps; i++) {
-                const val = stepVal * i;
-                const displayVal = isRevenue ? formatNumber(Math.round(val / 1000)) + 'k' : formatNumber(Math.round(val));
-                html += `<div class="chart-y-label">${displayVal}</div>`;
+            function formatNumber(n) {
+                return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
-            html += '</div>';
 
-            // Grid lines
-            html += '<div class="chart-grid">';
-            for (let i = 0; i <= steps; i++) {
-                const pct = (i / steps) * 100;
-                html += `<div class="chart-grid-line" style="bottom:${pct}%"></div>`;
-            }
-            html += '</div>';
+            function renderChart(dataArr, isRevenue) {
+                const container = document.getElementById('chartContainer');
+                const maxVal = Math.max(...dataArr, 1);
+                const steps = 5;
+                const niceMax = Math.ceil(maxVal / steps) * steps;
+                const stepVal = niceMax / steps;
 
-            // Bars
-            html += '<div class="chart-bars">';
-            dataArr.forEach((val, idx) => {
-                const heightPct = niceMax > 0 ? (val / niceMax) * 100 : 0;
-                const displayVal = isRevenue ? formatNumber(val) + ' VNĐ' : formatNumber(val);
-                html += `
-                    <div class="chart-bar-group">
-                        <div class="chart-bar-wrapper">
-                            <div class="chart-bar chart-bar-${idx}" 
-                                 style="height: 0%"
-                                 data-height="${heightPct}"
-                                 data-value="${displayVal}"
-                                 data-label="${labels[idx]}">
-                                <span class="chart-bar-value">${displayVal}</span>
+                let html = '<div class="chart-wrapper">';
+
+                html += '<div class="chart-y-axis">';
+                for (let i = 0; i <= steps; i++) {
+                    const val = stepVal * i;
+                    const displayVal = isRevenue
+                        ? (val >= 1000000 ? formatNumber(val / 1000000) + 'tr' : formatNumber(val / 1000) + 'k')
+                        : formatNumber(val);
+                    html += `<div class="chart-y-label">${val === 0 ? 0 : displayVal}</div>`;
+                }
+                html += '</div>';
+
+                html += '<div class="chart-grid">';
+                for (let i = 0; i <= steps; i++) {
+                    html += `<div class="chart-grid-line" style="bottom:${(i / steps) * 100}%"></div>`;
+                }
+                html += '</div>';
+
+                html += '<div class="chart-bars">';
+                dataArr.forEach((val, idx) => {
+                    const heightPct = niceMax > 0 ? (val / niceMax) * 100 : 0;
+                    const displayVal = isRevenue ? formatNumber(val) + ' đ' : formatNumber(val) + ' đơn';
+                    html += `
+                        <div class="chart-bar-group">
+                            <div class="chart-bar-wrapper">
+                                <div class="chart-bar" style="height:0%"
+                                     data-height="${heightPct}"
+                                     data-value="${displayVal}"
+                                     data-label="${dayFullLabels[idx]}">
+                                    <span class="chart-bar-value">${displayVal}</span>
+                                </div>
                             </div>
-                        </div>
-                        <div class="chart-bar-label">${labels[idx]}</div>
-                    </div>`;
-            });
-            html += '</div>';
-            html += '</div>';
-
-            container.innerHTML = html;
-
-            // Animate bars
-            requestAnimationFrame(() => {
-                const bars = container.querySelectorAll('.chart-bar');
-                bars.forEach((bar, i) => {
-                    setTimeout(() => {
-                        bar.style.height = bar.dataset.height + '%';
-                    }, i * 80);
+                            <div class="chart-bar-label">${dayLabels[idx]}</div>
+                        </div>`;
                 });
-            });
+                html += '</div></div>';
 
-            // Tooltip
-            setupTooltip();
-        }
+                container.innerHTML = html;
 
-        function setupTooltip() {
-            let tooltip = document.querySelector('.chart-tooltip');
-            if (!tooltip) {
-                tooltip = document.createElement('div');
-                tooltip.className = 'chart-tooltip';
-                document.body.appendChild(tooltip);
+                requestAnimationFrame(() => {
+                    container.querySelectorAll('.chart-bar').forEach((bar, i) => {
+                        setTimeout(() => { bar.style.height = bar.dataset.height + '%'; }, i * 70);
+                    });
+                });
+
+                setupTooltip();
             }
 
-            document.querySelectorAll('.chart-bar').forEach(bar => {
-                bar.addEventListener('mouseenter', function(e) {
-                    tooltip.textContent = `${this.dataset.label}: ${this.dataset.value}`;
-                    tooltip.classList.add('show');
+            function setupTooltip() {
+                let tooltip = document.querySelector('.chart-tooltip');
+                if (!tooltip) {
+                    tooltip = document.createElement('div');
+                    tooltip.className = 'chart-tooltip';
+                    document.body.appendChild(tooltip);
+                }
+                document.querySelectorAll('.chart-bar').forEach(bar => {
+                    bar.addEventListener('mouseenter', function () {
+                        tooltip.textContent = `${this.dataset.label}: ${this.dataset.value}`;
+                        tooltip.classList.add('show');
+                    });
+                    bar.addEventListener('mousemove', function (e) {
+                        tooltip.style.left = (e.clientX + 12) + 'px';
+                        tooltip.style.top = (e.clientY - 36) + 'px';
+                    });
+                    bar.addEventListener('mouseleave', function () {
+                        tooltip.classList.remove('show');
+                    });
                 });
-                bar.addEventListener('mousemove', function(e) {
-                    tooltip.style.left = (e.clientX + 12) + 'px';
-                    tooltip.style.top = (e.clientY - 36) + 'px';
-                });
-                bar.addEventListener('mouseleave', function() {
-                    tooltip.classList.remove('show');
-                });
-            });
-        }
-
-        function switchChart(type) {
-            currentChart = type;
-            document.getElementById('btnOrders').classList.toggle('active', type === 'orders');
-            document.getElementById('btnRevenue').classList.toggle('active', type === 'revenue');
-
-            if (type === 'orders') {
-                document.querySelector('.card-body h5').textContent = 'Thống kê đơn hàng theo ngày trong tuần';
-                renderChart(ordersData, dayLabels, false);
-            } else {
-                document.querySelector('.card-body h5').textContent = 'Thống kê doanh thu theo ngày trong tuần';
-                renderChart(revenueData, dayLabels, true);
             }
-        }
 
-        // Render chart ban đầu
-        document.addEventListener('DOMContentLoaded', function() {
-            renderChart(ordersData, dayLabels, false);
-        });
-    </script>
+            function switchChart(type) {
+                const isRevenue = type === 'revenue';
+                document.getElementById('btnOrders').className = 'btn ' + (isRevenue ? 'btn-outline-primary' : 'btn-primary active');
+                document.getElementById('btnRevenue').className = 'btn ' + (isRevenue ? 'btn-primary active' : 'btn-outline-primary');
+                document.getElementById('chartTitle').textContent = isRevenue
+                    ? 'Doanh thu theo ngày trong tuần'
+                    : 'Đơn hàng theo ngày trong tuần';
+                renderChart(isRevenue ? revenueData : ordersData, isRevenue);
+            }
+
+            function renderDonut() {
+                const svg = document.getElementById('statusDonut');
+                const total = statusData.reduce((s, d) => s + d.value, 0);
+                if (!svg || total === 0) return;
+
+                let offset = 25;
+                statusData.forEach(d => {
+                    if (d.value === 0) return;
+                    const pct = (d.value / total) * 100;
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('class', 'donut-segment');
+                    circle.setAttribute('cx', '21');
+                    circle.setAttribute('cy', '21');
+                    circle.setAttribute('r', '15.9155');
+                    circle.setAttribute('fill', 'transparent');
+                    circle.setAttribute('stroke', d.color);
+                    circle.setAttribute('stroke-width', '6');
+                    circle.setAttribute('stroke-dasharray', `${pct} ${100 - pct}`);
+                    circle.setAttribute('stroke-dashoffset', offset);
+                    svg.appendChild(circle);
+                    offset -= pct;
+                });
+            }
+
+            document.addEventListener('DOMContentLoaded', function () {
+                renderChart(ordersData, false);
+                renderDonut();
+            });
+        </script>
+    }
 }

@@ -1,0 +1,57 @@
+@model string
+@{
+    var granted = Model;
+}
+
+<div class="card border-0 bg-light mb-3" id="permissionBox">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="form-label fw-bold mb-0">
+                <i class="bi bi-shield-lock me-1 text-primary"></i>Phân quyền cho nhân viên
+            </label>
+            <div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="togglePermissions(true)">Chọn tất cả</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="togglePermissions(false)">Bỏ chọn</button>
+            </div>
+        </div>
+        <div class="form-text mb-3">
+            Nhân viên chỉ nhìn thấy và sử dụng được những mục được tick dưới đây.
+            Quản trị viên (Admin) luôn có toàn quyền nên không cần chọn.
+        </div>
+
+        <div class="row g-2">
+            @foreach (var p in TechStoreWeb.Services.AdminPermissions.All)
+            {
+                var isChecked = TechStoreWeb.Services.AdminPermissions.Contains(granted, p.Key);
+                <div class="col-md-6">
+                    <div class="form-check p-3 bg-white rounded border">
+                        <input class="form-check-input perm-check" type="checkbox"
+                               name="SelectedPermissions" value="@p.Key"
+                               id="perm_@p.Key" checked="@isChecked" />
+                        <label class="form-check-label fw-semibold ms-1" for="perm_@p.Key">
+                            <i class="bi @p.Icon me-1 text-primary"></i>@p.Label
+                        </label>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<script>
+    function togglePermissions(state) {
+        document.querySelectorAll('.perm-check').forEach(c => c.checked = state);
+    }
+
+    (function () {
+        const role = document.getElementById('roleSelect');
+        const box = document.getElementById('permissionBox');
+        if (!role || !box) return;
+
+        function sync() {
+            box.style.display = role.value === 'Admin' ? 'none' : '';
+        }
+        role.addEventListener('change', sync);
+        sync();
+    })();
+</script>

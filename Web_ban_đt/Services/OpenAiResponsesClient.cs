@@ -77,14 +77,11 @@ namespace TechStoreWeb.Services
             httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
             if (isGoogleApi)
             {
-                // SDK google-genai xac thuc bang header nay; YeScale chap nhan ca hai.
                 httpRequest.Headers.Add("x-goog-api-key", _options.ApiKey);
             }
 
             httpRequest.Content = new StringContent(payload, Encoding.UTF8, "application/json");
 
-            // Nha cung cap thinh thoang treo hang chuc giay roi moi tra loi, trong khi goi lai
-            // thuong xong trong 1-2 giay. Cat ngan tung luot de khach khong ngoi cho vo ich.
             using var attemptTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             attemptTimeout.CancelAfter(AttemptTimeout);
 
@@ -126,7 +123,6 @@ namespace TechStoreWeb.Services
 
         private static bool IsRetryableStatus(System.Net.HttpStatusCode statusCode)
         {
-            // 402 het so du va 401/403 sai khoa thi goi lai bao nhieu lan cung the.
             return (int)statusCode >= 500 ||
                    statusCode == System.Net.HttpStatusCode.RequestTimeout ||
                    statusCode == System.Net.HttpStatusCode.TooManyRequests;
@@ -175,7 +171,6 @@ namespace TechStoreWeb.Services
                 },
                 generationConfig = new
                 {
-                    // Tu van gia va cau hinh la viec chep lai du lieu, khong phai sang tao.
                     temperature = 0.0,
                     maxOutputTokens = 1024
                 }
@@ -252,8 +247,6 @@ namespace TechStoreWeb.Services
                     return null;
                 }
 
-                // Model suy luan tra ve nhieu part; part chi chua thoughtSignature hoac
-                // duoc danh dau "thought" khong phai cau tra loi cho khach.
                 var builder = new StringBuilder();
                 foreach (var part in parts.EnumerateArray())
                 {

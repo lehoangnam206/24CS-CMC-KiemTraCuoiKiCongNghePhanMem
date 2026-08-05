@@ -26,7 +26,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return HttpContext.Session.GetString("Role") == "Admin";
         }
 
-        // GET: Admin/Employees
         public async Task<IActionResult> Index()
         {
             if (!IsAdmin()) return RedirectToAction("Login", "Account", new { area = "" });
@@ -38,7 +37,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View(employees);
         }
 
-        // GET: Admin/Employees/Details/5
         public async Task<IActionResult> Details(int? id)
         {
             if (!IsAdmin()) return RedirectToAction("Login", "Account", new { area = "" });
@@ -50,22 +48,26 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View(employee);
         }
 
-        // GET: Admin/Employees/Create
         public IActionResult Create()
         {
             if (!IsAdmin()) return RedirectToAction("Login", "Account", new { area = "" });
             return View();
         }
 
-        // POST: Admin/Employees/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("FullName,Username,Email,PhoneNumber,Password,Role")] User employee)
+        public async Task<IActionResult> Create([Bind("FullName,Username,Email,PhoneNumber,Password,Role")] User employee,
+            string[]? SelectedPermissions)
         {
             if (!IsAdmin()) return RedirectToAction("Login", "Account", new { area = "" });
 
             ModelState.Remove("LoginProvider");
             ModelState.Remove("ProviderKey");
+            ModelState.Remove("Permissions");
+
+            employee.Permissions = employee.Role == "Admin"
+                ? null
+                : AdminPermissions.Normalize(SelectedPermissions);
 
             if (ModelState.IsValid)
             {
@@ -88,7 +90,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View(employee);
         }
 
-        // GET: Admin/Employees/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
             if (!IsAdmin()) return RedirectToAction("Login", "Account", new { area = "" });
@@ -100,10 +101,10 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View(employee);
         }
 
-        // POST: Admin/Employees/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("UserId,FullName,Username,Email,PhoneNumber,Role")] User updatedEmployee, string? NewPassword)
+        public async Task<IActionResult> Edit(int id, [Bind("UserId,FullName,Username,Email,PhoneNumber,Role")] User updatedEmployee,
+            string? NewPassword, string[]? SelectedPermissions)
         {
             if (!IsAdmin()) return RedirectToAction("Login", "Account", new { area = "" });
             if (id != updatedEmployee.UserId) return NotFound();
@@ -111,6 +112,11 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             ModelState.Remove("LoginProvider");
             ModelState.Remove("ProviderKey");
             ModelState.Remove("Password");
+            ModelState.Remove("Permissions");
+
+            updatedEmployee.Permissions = updatedEmployee.Role == "Admin"
+                ? null
+                : AdminPermissions.Normalize(SelectedPermissions);
 
             if (ModelState.IsValid)
             {
@@ -130,6 +136,7 @@ namespace TechStoreWeb.Areas.Admin.Controllers
                 employee.Email = updatedEmployee.Email;
                 employee.PhoneNumber = updatedEmployee.PhoneNumber;
                 employee.Role = updatedEmployee.Role;
+                employee.Permissions = updatedEmployee.Permissions;
 
                 if (!string.IsNullOrEmpty(NewPassword))
                 {
@@ -144,7 +151,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View(updatedEmployee);
         }
 
-        // POST: Admin/Employees/ToggleLock/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ToggleLock(int id)

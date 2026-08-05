@@ -1,4 +1,4 @@
-﻿USE [master]
+﻿USE db60757
 GO
 /****** Object:  Database [TechStoreDB]    Script Date: 7/13/2026 8:46:42 PM ******/
 CREATE DATABASE [TechStoreDB]

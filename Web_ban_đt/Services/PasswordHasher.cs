@@ -12,15 +12,9 @@ namespace TechStoreWeb.Services
     {
         Failed = 0,
         Success = 1,
-        /// <summary>Mật khẩu đúng nhưng đang lưu ở dạng cũ (plaintext), cần hash lại và lưu đè.</summary>
         SuccessNeedsUpgrade = 2
     }
 
-    /// <summary>
-    /// Băm mật khẩu bằng PBKDF2-HMAC-SHA256. Định dạng lưu trong DB:
-    /// PBKDF2$&lt;iterations&gt;$&lt;salt-base64&gt;$&lt;hash-base64&gt;
-    /// Mật khẩu cũ lưu plaintext vẫn đăng nhập được và sẽ tự nâng cấp sang hash.
-    /// </summary>
     public class PasswordHasher : IPasswordHasher
     {
         private const string Prefix = "PBKDF2";
@@ -42,7 +36,6 @@ namespace TechStoreWeb.Services
                 return PasswordVerificationResult.Failed;
             }
 
-            // Mật khẩu cũ chưa băm: so sánh trực tiếp rồi báo cần nâng cấp.
             if (!storedPassword.StartsWith(Prefix + "$", StringComparison.Ordinal))
             {
                 return CryptographicOperations.FixedTimeEquals(

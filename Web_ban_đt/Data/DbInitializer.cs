@@ -11,16 +11,10 @@ namespace TechStoreWeb.Data
 {
     public static class DbInitializer
     {
-        /// <param name="seedAdminPassword">
-        /// Mật khẩu cho tài khoản admin khởi tạo. Truyền từ cấu hình (appsettings.Production.json
-        /// hoặc biến môi trường SEED_ADMIN_PASSWORD) để không phải dùng mật khẩu mặc định.
-        /// </param>
         public static void Initialize(AppDbContext context, IWebHostEnvironment env, string? seedAdminPassword = null)
         {
-            // Ensure database and tables exist (does NOT delete existing data)
             context.Database.EnsureCreated();
 
-            // Seed default Admin user if none exists
             if (!context.Users.Any(u => u.Role == "Admin"))
             {
                 var seedPassword = !string.IsNullOrWhiteSpace(seedAdminPassword)
@@ -39,7 +33,6 @@ namespace TechStoreWeb.Data
                 context.SaveChanges();
             }
 
-            // Fix usernames to be without diacritics
             var existingUsers = context.Users.Where(u => !string.IsNullOrEmpty(u.Username)).ToList();
             bool usersChanged = false;
             foreach (var user in existingUsers)
@@ -56,9 +49,7 @@ namespace TechStoreWeb.Data
                 context.SaveChanges();
             }
 
-            // Source directory for web images
             string sourceWebPath = Path.GetFullPath(Path.Combine(env.ContentRootPath, "..", "web"));
-            // Target directory in wwwroot
             string targetWebPath = Path.Combine(env.WebRootPath, "images");
 
             if (Directory.Exists(sourceWebPath))
@@ -68,7 +59,6 @@ namespace TechStoreWeb.Data
                     Directory.CreateDirectory(targetWebPath);
                 }
 
-                // Copy all brand folders and images
                 foreach (string dirPath in Directory.GetDirectories(sourceWebPath, "*", SearchOption.AllDirectories))
                 {
                     string targetDir = dirPath.Replace(sourceWebPath, targetWebPath);
@@ -88,10 +78,8 @@ namespace TechStoreWeb.Data
                 }
             }
 
-            // Check if there are any products that use placeholder URLs
             bool hasPlaceholders = context.Products.Any(p => p.ImageUrl.Contains("via.placeholder.com") || p.ImageUrl.Contains("placeholder"));
 
-            // Get all directories under targetWebPath (wwwroot/images)
             var brandFolders = Directory.GetDirectories(targetWebPath)
                 .Select(Path.GetFileName)
                 .Where(name => !name.Equals("Giao diện trang chủ", StringComparison.OrdinalIgnoreCase))
@@ -102,14 +90,11 @@ namespace TechStoreWeb.Data
 
             if (!context.Categories.Any())
             {
-                // MOCK DATA GENERATION DISABLED
-                // Dữ liệu thật đã được nạp từ data.sql
             }
         }
 
         private static string CleanProductName(string rawName, string brand, int index)
         {
-            // Check if rawName is a random hash or default word like "images", "tải xuống", "shopping"
             string clean = rawName.ToLower();
             bool isGeneric = clean.Contains("images") || 
                              clean.Contains("shopping") || 
@@ -123,23 +108,19 @@ namespace TechStoreWeb.Data
                 return $"{brand} Model {index:D2}";
             }
 
-            // Clean up name
             clean = clean.Replace("-", " ");
             clean = clean.Replace("_", " ");
             clean = Regex.Replace(clean, @"\s+", " ");
 
-            // Remove thumb sizes, resolutions, etc.
             clean = clean.Replace("thumb 600x600", "");
             clean = clean.Replace("600x600 2", "");
             clean = clean.Replace("600x600", "");
-            clean = Regex.Replace(clean, @"\(\d+\)", ""); // Remove (1), (2), etc.
+            clean = Regex.Replace(clean, @"\(\d+\)", "");
             clean = clean.Trim();
 
-            // Title case formatting
             TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
             string formattedName = textInfo.ToTitleCase(clean);
 
-            // Ensure brand is not duplicated in name
             if (formattedName.StartsWith(brand, StringComparison.OrdinalIgnoreCase))
             {
                 return formattedName;
@@ -150,7 +131,6 @@ namespace TechStoreWeb.Data
 
         private static decimal GeneratePrice(string brand, int index)
         {
-            // Give products a varied price based on brand and index
             long basePrice = 2500000;
             switch (brand.ToLower())
             {
@@ -176,14 +156,13 @@ namespace TechStoreWeb.Data
                     basePrice = 2200000 + (index * 400000);
                     break;
                 case "nokia":
-                    basePrice = 5700000;  // Fixed price for Nokia 105
+                    basePrice = 5700000;
                     break;
                 default:
                     basePrice = 3000000 + (index * 500000);
                     break;
             }
 
-            // Round to nearest 10,000 VND
             basePrice = (basePrice / 10000) * 10000;
             return (decimal)basePrice;
         }

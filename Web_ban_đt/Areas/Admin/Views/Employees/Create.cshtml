@@ -52,12 +52,14 @@
                 </div>
                 <div class="col-md-6 mb-3">
                     <label asp-for="Role" class="form-label fw-bold">Quyền</label>
-                    <select asp-for="Role" class="form-select">
+                    <select asp-for="Role" class="form-select" id="roleSelect">
                         <option value="Employee">Nhân viên</option>
                         <option value="Admin">Quản trị viên (Admin)</option>
                     </select>
                 </div>
             </div>
+
+            <partial name="_PermissionPicker" model="Model?.Permissions" />
 
             <div class="mt-4">
                 <button type="submit" class="btn btn-primary px-4 py-2" style="border-radius: 8px;">

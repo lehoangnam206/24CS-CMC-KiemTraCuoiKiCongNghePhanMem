@@ -1,0 +1,23 @@
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace TechStoreWeb.Migrations
+{
+    public partial class AddUserPermissions : Migration
+    {
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AddColumn<string>(
+                name: "Permissions",
+                table: "Users",
+                type: "nvarchar(max)",
+                nullable: true);
+        }
+
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropColumn(name: "Permissions", table: "Users");
+        }
+    }
+}

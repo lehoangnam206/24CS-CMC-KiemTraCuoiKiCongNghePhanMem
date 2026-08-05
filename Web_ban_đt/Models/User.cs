@@ -21,12 +21,13 @@ namespace TechStoreWeb.Models
         [Phone(ErrorMessage = "Số điện thoại không đúng định dạng")]
         public string? PhoneNumber { get; set; }
 
-        public string Role { get; set; } = "Customer"; // Admin, Customer
+        public string Role { get; set; } = "Customer";
+
+        public string? Permissions { get; set; }
 
         public bool IsLocked { get; set; } = false;
 
-        // External login support
-        public string LoginProvider { get; set; } = "Local"; // "Local", "Facebook"
-        public string? ProviderKey { get; set; } // Facebook User ID
+        public string LoginProvider { get; set; } = "Local";
+        public string? ProviderKey { get; set; }
     }
 }

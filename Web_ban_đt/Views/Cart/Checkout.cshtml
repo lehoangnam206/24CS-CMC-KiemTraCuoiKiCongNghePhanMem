@@ -2,7 +2,17 @@
 @{
     Layout = null;
     var user = ViewBag.User as TechStoreWeb.Models.User;
-    var discount = ViewBag.Discount ?? 0m;
+    var discount = (decimal)(ViewBag.Discount ?? 0m);
+    var saved = ViewBag.SavedForm as TechStoreWeb.Models.CheckoutFormModel;
+    var standardFee = (decimal)(ViewBag.ShippingFee ?? 20000m);
+    var insuranceFee = (decimal)(ViewBag.InsuranceFee ?? 0m);
+
+    var receiverName = saved?.ReceiverName ?? user?.FullName;
+    var receiverPhone = saved?.ReceiverPhone ?? user?.PhoneNumber;
+    var receiverEmail = saved?.ReceiverEmail ?? user?.Email;
+    var buyInsurance = saved?.BuyInsurance ?? false;
+    var isOffice = string.Equals(saved?.AddressType, "Office", StringComparison.OrdinalIgnoreCase);
+    var isCod = string.Equals(saved?.PaymentMethod, "COD", StringComparison.OrdinalIgnoreCase);
 }
 <!DOCTYPE html>
 <html lang="vi">
@@ -168,6 +178,190 @@
         .input-group-custom:focus-within i { color: var(--primary-color); }
         .input-group-custom input[readonly] { background-color: rgba(0,0,0,0.02); color: var(--text-muted); }
         
+        .input-group-custom select,
+        .input-group-custom textarea {
+            width: 100%;
+            padding: 16px 20px 16px 56px;
+            border: 1px solid rgba(0,0,0,0.05);
+            border-radius: var(--radius-lg);
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-main);
+            background: var(--surface-color);
+            outline: none;
+            transition: all 0.3s var(--bezier-smooth);
+            font-family: inherit;
+            appearance: none;
+        }
+        .input-group-custom select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.1);
+        }
+
+        textarea[name="Note"] {
+            width: 100%;
+            padding: 16px 20px;
+            border: 1px solid rgba(0,0,0,0.05);
+            border-radius: var(--radius-lg);
+            font-size: 15px;
+            font-weight: 500;
+            font-family: inherit;
+            color: var(--text-main);
+            background: var(--surface-color);
+            outline: none;
+            resize: vertical;
+            transition: all 0.3s var(--bezier-smooth);
+        }
+        textarea[name="Note"]:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.1);
+        }
+
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @@media (max-width: 640px) { .form-row { grid-template-columns: 1fr; } }
+
+        .field-hint { font-size: 13px; color: var(--text-muted); margin-top: 8px; font-weight: 500; }
+        .field-hint.error { color: #ef4444; }
+
+        .alert-error {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(239, 68, 68, 0.08);
+            color: #dc2626;
+            border-radius: var(--radius-lg);
+            padding: 16px 24px;
+            font-weight: 600;
+            font-size: 15px;
+            margin-bottom: 32px;
+        }
+
+        .chip-row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .chip-radio { display: none; }
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: var(--radius-pill);
+            background: var(--surface-color);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s var(--bezier-smooth);
+        }
+        .chip-radio:checked + .chip {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            background: rgba(37, 99, 235, 0.06);
+        }
+
+        .fee-tag { font-weight: 700; font-size: 15px; color: var(--text-main); }
+
+        .shipping-fixed {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 20px 24px;
+            border: 1px solid rgba(0,0,0,0.05);
+            border-radius: var(--radius-lg);
+            background: var(--surface-color);
+        }
+        .shipping-fixed > i { font-size: 22px; color: var(--primary-color); }
+
+        .insurance-check { display: none; }
+        .insurance-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 20px 24px;
+            border: 1px solid rgba(0,0,0,0.05);
+            border-radius: var(--radius-lg);
+            background: var(--surface-color);
+            cursor: pointer;
+            transition: all 0.3s var(--bezier-smooth);
+        }
+        .insurance-card:hover { box-shadow: var(--shadow-soft); }
+        .insurance-check:checked + .insurance-card {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.04);
+        }
+        .insurance-box {
+            width: 22px;
+            height: 22px;
+            border: 2px solid rgba(0,0,0,0.2);
+            border-radius: 6px;
+            flex-shrink: 0;
+            margin-top: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: transparent;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+        .insurance-check:checked + .insurance-card .insurance-box {
+            background: #10b981;
+            border-color: #10b981;
+            color: #fff;
+        }
+        .insurance-body { flex: 1; }
+        .insurance-title {
+            font-weight: 700;
+            font-size: 15px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
+        }
+        .insurance-title > i { color: #10b981; }
+        .insurance-fee {
+            margin-left: auto;
+            color: #10b981;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .insurance-desc { font-size: 13px; color: var(--text-muted); line-height: 1.6; font-weight: 500; }
+
+        .order-summary {
+            margin-top: 32px;
+            padding: 24px;
+            background: var(--surface-color);
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(0,0,0,0.04);
+        }
+        .summary-title { font-weight: 800; font-size: 16px; margin-bottom: 20px; }
+        .summary-item { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+        .summary-item img {
+            width: 48px; height: 48px; object-fit: contain;
+            background: var(--bg-color); border-radius: 12px; flex-shrink: 0;
+        }
+        .summary-item-info { flex: 1; min-width: 0; }
+        .summary-item-name {
+            font-size: 14px; font-weight: 600;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .summary-item-qty { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+        .summary-item-price { font-size: 14px; font-weight: 700; white-space: nowrap; }
+
+        .summary-line {
+            display: flex; justify-content: space-between;
+            padding-top: 12px;
+            font-size: 15px; color: var(--text-muted); font-weight: 500;
+        }
+        .summary-line.discount { color: #10b981; }
+        .summary-line.total {
+            margin-top: 12px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(0,0,0,0.06);
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
         .payment-radio { display: none; }
         .payment-method {
             border: 1px solid rgba(0,0,0,0.05);
@@ -269,56 +463,138 @@
             <div class="header-subtitle">Xác nhận thông tin giao hàng và phương thức thanh toán.</div>
         </div>
 
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="alert-error">
+                <i class="bi bi-exclamation-triangle-fill"></i> @TempData["ErrorMessage"]
+            </div>
+        }
+
         <form asp-action="Checkout" method="post" id="checkoutForm">
             @Html.AntiForgeryToken()
-            
+
             <div class="checkout-grid">
                 <!-- Thông tin giao hàng -->
                 <div class="checkout-card">
                     <div class="checkout-card-inner">
                         <h3 class="section-title">Giao hàng</h3>
-                        
+
                         <div class="form-group">
-                            <label class="form-label">Họ và tên</label>
+                            <label class="form-label" for="receiverName">Họ và tên người nhận</label>
                             <div class="input-group-custom">
                                 <i class="bi bi-person"></i>
-                                <input type="text" value="@user?.FullName" readonly />
+                                <input type="text" id="receiverName" name="ReceiverName" value="@receiverName"
+                                       required maxlength="80" placeholder="VD: Nguyễn Văn A" />
                             </div>
                         </div>
-                        
+
                         <div class="form-group">
-                            <label class="form-label">Số điện thoại</label>
+                            <label class="form-label" for="receiverPhone">Số điện thoại</label>
                             <div class="input-group-custom">
                                 <i class="bi bi-telephone"></i>
-                                <input type="text" value="@user?.PhoneNumber" readonly />
+                                <input type="tel" id="receiverPhone" name="ReceiverPhone" value="@receiverPhone"
+                                       required inputmode="numeric" maxlength="15" placeholder="VD: 0912345678" />
                             </div>
+                            <div class="field-hint" id="phoneHint">Dùng để shipper liên hệ khi giao hàng.</div>
                         </div>
-                        
+
                         <div class="form-group">
-                            <label class="form-label">Địa chỉ giao hàng</label>
-                            <div class="input-group-custom">
-                                <i class="bi bi-geo-alt"></i>
-                                <input type="text" name="shippingAddress" required placeholder="Nhập địa chỉ chi tiết..." />
-                            </div>
-                        </div>
-                        
-                        <div class="form-group mb-0">
-                            <label class="form-label">Email</label>
+                            <label class="form-label" for="receiverEmail">Email nhận hoá đơn</label>
                             <div class="input-group-custom">
                                 <i class="bi bi-envelope"></i>
-                                <input type="email" value="@user?.Email" readonly />
+                                <input type="email" id="receiverEmail" name="ReceiverEmail" value="@receiverEmail"
+                                       placeholder="abc@@gmail.com" />
                             </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="province">Tỉnh / Thành phố</label>
+                                <div class="input-group-custom">
+                                    <i class="bi bi-map"></i>
+                                    <select id="province" name="Province" required data-selected="@saved?.Province"></select>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" for="ward">Phường / Xã</label>
+                                <div class="input-group-custom">
+                                    <i class="bi bi-signpost-2"></i>
+                                    <input type="text" id="ward" name="Ward" value="@saved?.Ward"
+                                           required maxlength="120" placeholder="Nhập phường / xã" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="addressDetail">Địa chỉ chi tiết</label>
+                            <div class="input-group-custom">
+                                <i class="bi bi-geo-alt"></i>
+                                <input type="text" id="addressDetail" name="AddressDetail" value="@saved?.AddressDetail"
+                                       required maxlength="200" placeholder="Số nhà, tên đường, toà nhà..." />
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Loại địa chỉ</label>
+                            <div class="chip-row">
+                                <input type="radio" name="AddressType" value="Home" id="addrHome" class="chip-radio" checked="@(!isOffice)">
+                                <label class="chip" for="addrHome"><i class="bi bi-house-door"></i> Nhà riêng</label>
+
+                                <input type="radio" name="AddressType" value="Office" id="addrOffice" class="chip-radio" checked="@isOffice">
+                                <label class="chip" for="addrOffice"><i class="bi bi-building"></i> Văn phòng</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Phương thức giao hàng</label>
+                            <input type="hidden" name="ShippingMethod" value="Standard" />
+                            <div class="shipping-fixed">
+                                <i class="bi bi-truck"></i>
+                                <div class="payment-info">
+                                    <div class="payment-title">Giao tiêu chuẩn</div>
+                                    <div class="payment-desc">Nhận hàng sau 2 – 4 ngày</div>
+                                </div>
+                                <span class="fee-tag">@standardFee.ToString("N0")đ</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Bảo hiểm đơn hàng</label>
+
+                            <input type="checkbox" name="BuyInsurance" value="true" id="buyInsurance"
+                                   class="insurance-check" checked="@buyInsurance" />
+                            <label class="insurance-card" for="buyInsurance">
+                                <span class="insurance-box"><i class="bi bi-check"></i></span>
+                                <div class="insurance-body">
+                                    <div class="insurance-title">
+                                        <i class="bi bi-shield-shaded"></i> Bảo hiểm Thương mại điện tử
+                                        <span class="insurance-fee">+@insuranceFee.ToString("N0")đ</span>
+                                    </div>
+                                    <div class="insurance-desc">
+                                        Bồi thường tới 100% giá trị đơn hàng nếu sản phẩm bị
+                                        <b>vỡ, hỏng, mất hoặc thất lạc</b> trong quá trình vận chuyển.
+                                        Xử lý bồi thường trong 24 giờ, không cần chứng minh lỗi.
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="form-group mb-0">
+                            <label class="form-label" for="note">Ghi chú cho người giao hàng</label>
+                            <textarea id="note" name="Note" rows="3" maxlength="300"
+                                      placeholder="VD: Giao giờ hành chính, gọi trước khi tới...">@saved?.Note</textarea>
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Thanh toán -->
                 <div class="checkout-card">
                     <div class="checkout-card-inner">
                         <h3 class="section-title">Thanh toán</h3>
-                        
+
                         <div class="payment-method-wrapper">
-                            <input type="radio" name="paymentMethod" value="VNPAY" id="payVNPAY" class="payment-radio" checked>
+                            <input type="radio" name="PaymentMethod" value="VNPAY" id="payVNPAY" class="payment-radio" checked="@(!isCod)">
                             <label class="payment-method" for="payVNPAY">
                                 <div class="radio-circle"></div>
                                 <div class="payment-info">
@@ -328,9 +604,9 @@
                                 <i class="bi bi-qr-code" style="font-size: 24px; color: var(--text-muted);"></i>
                             </label>
                         </div>
-                        
+
                         <div class="payment-method-wrapper">
-                            <input type="radio" name="paymentMethod" value="COD" id="payCOD" class="payment-radio">
+                            <input type="radio" name="PaymentMethod" value="COD" id="payCOD" class="payment-radio" checked="@isCod">
                             <label class="payment-method" for="payCOD">
                                 <div class="radio-circle"></div>
                                 <div class="payment-info">
@@ -340,25 +616,185 @@
                                 <i class="bi bi-cash" style="font-size: 24px; color: var(--text-muted);"></i>
                             </label>
                         </div>
-                        
+
+                        @{
+                            var subtotal = Model?.Sum(i => i.Price * i.Qty) ?? 0m;
+                            var initialInsurance = buyInsurance ? insuranceFee : 0m;
+                            var total = Math.Max(subtotal + standardFee + initialInsurance - discount, 0m);
+
+                            var inv = System.Globalization.CultureInfo.InvariantCulture;
+                            var subtotalRaw = subtotal.ToString(inv);
+                            var discountRaw = discount.ToString(inv);
+                            var standardFeeRaw = standardFee.ToString(inv);
+                            var insuranceFeeRaw = insuranceFee.ToString(inv);
+                        }
+
+                        <div class="order-summary">
+                            <div class="summary-title">Đơn hàng (@(Model?.Sum(i => i.Qty) ?? 0) sản phẩm)</div>
+
+                            @if (Model != null)
+                            {
+                                foreach (var item in Model)
+                                {
+                                    <div class="summary-item">
+                                        <img src="@item.Img" alt="@item.Name" onerror="this.style.visibility='hidden'" />
+                                        <div class="summary-item-info">
+                                            <div class="summary-item-name">@item.Name</div>
+                                            <div class="summary-item-qty">SL: @item.Qty</div>
+                                        </div>
+                                        <div class="summary-item-price">@((item.Price * item.Qty).ToString("N0"))đ</div>
+                                    </div>
+                                }
+                            }
+
+                            <div class="summary-line">
+                                <span>Tạm tính</span>
+                                <span>@subtotal.ToString("N0")đ</span>
+                            </div>
+                            <div class="summary-line">
+                                <span>Phí vận chuyển</span>
+                                <span>@standardFee.ToString("N0")đ</span>
+                            </div>
+                            <div class="summary-line" id="insuranceLine" style="@(buyInsurance ? "" : "display:none")">
+                                <span>Bảo hiểm đơn hàng</span>
+                                <span id="insuranceFeeText">@insuranceFee.ToString("N0")đ</span>
+                            </div>
+                            @if (discount > 0)
+                            {
+                                <div class="summary-line discount">
+                                    <span>Giảm giá</span>
+                                    <span>-@discount.ToString("N0")đ</span>
+                                </div>
+                            }
+                            <div class="summary-line total">
+                                <span>Tổng cộng</span>
+                                <span id="grandTotalText"
+                                      data-subtotal="@subtotalRaw"
+                                      data-discount="@discountRaw"
+                                      data-shipping="@standardFeeRaw"
+                                      data-insurance="@insuranceFeeRaw">@total.ToString("N0")đ</span>
+                            </div>
+                        </div>
+
                         <div class="security-badge">
                             <i class="bi bi-shield-check" style="font-size: 32px;"></i>
                             <span style="font-weight: 700; font-size: 14px;">Giao dịch được mã hóa và bảo mật tuyệt đối</span>
                         </div>
 
-                        @{
-                            var subtotal = Model?.Sum(i => i.Price * i.Qty) ?? 0m;
-                            var shipping = (subtotal > 0) ? 20000m : 0m;
-                            var total = Math.Max(subtotal + shipping - discount, 0m);
-                        }
-
-                        <button type="submit" class="submit-btn">
-                            Thanh toán @total.ToString("N0")đ
+                        <button type="submit" class="submit-btn" id="submitBtn">
+                            <span id="submitText">Thanh toán @total.ToString("N0")đ</span>
                         </button>
                     </div>
                 </div>
             </div>
         </form>
     </div>
+
+    <script>
+        const FALLBACK_PROVINCES = [
+            'Thành phố Hà Nội', 'Thành phố Hải Phòng', 'Thành phố Huế', 'Thành phố Đà Nẵng',
+            'Thành phố Hồ Chí Minh', 'Thành phố Cần Thơ',
+            'Tỉnh An Giang', 'Tỉnh Bắc Ninh', 'Tỉnh Cà Mau', 'Tỉnh Cao Bằng', 'Tỉnh Đắk Lắk',
+            'Tỉnh Điện Biên', 'Tỉnh Đồng Nai', 'Tỉnh Đồng Tháp', 'Tỉnh Gia Lai', 'Tỉnh Hà Tĩnh',
+            'Tỉnh Hưng Yên', 'Tỉnh Khánh Hòa', 'Tỉnh Lai Châu', 'Tỉnh Lâm Đồng', 'Tỉnh Lạng Sơn',
+            'Tỉnh Lào Cai', 'Tỉnh Nghệ An', 'Tỉnh Ninh Bình', 'Tỉnh Phú Thọ', 'Tỉnh Quảng Ngãi',
+            'Tỉnh Quảng Ninh', 'Tỉnh Quảng Trị', 'Tỉnh Sơn La', 'Tỉnh Tây Ninh', 'Tỉnh Thái Nguyên',
+            'Tỉnh Thanh Hóa', 'Tỉnh Tuyên Quang', 'Tỉnh Vĩnh Long'
+        ];
+
+        const provinceSelect = document.getElementById('province');
+        const wardInput = document.getElementById('ward');
+        const selectedProvince = provinceSelect.dataset.selected || '';
+
+        function fillProvinces(names) {
+            provinceSelect.innerHTML = '<option value="">-- Chọn Tỉnh / Thành phố --</option>'
+                + names.map(n => `<option value="${n}"${n === selectedProvince ? ' selected' : ''}>${n}</option>`).join('');
+        }
+
+        fillProvinces(FALLBACK_PROVINCES);
+
+        let provinceData = [];
+        fetch('https://provinces.open-api.vn/api/v2/?depth=2')
+            .then(r => r.ok ? r.json() : Promise.reject())
+            .then(data => {
+                if (!Array.isArray(data) || data.length === 0) return;
+                provinceData = data;
+                fillProvinces(data.map(p => p.name));
+                syncWardOptions();
+            })
+            .catch(() => { /* offline: giữ danh sách tĩnh, phường/xã nhập tay */ });
+
+        function syncWardOptions() {
+            const province = provinceData.find(p => p.name === provinceSelect.value);
+            const wards = province && Array.isArray(province.wards) ? province.wards : [];
+            const currentValue = wardInput.value;
+
+            let list = document.getElementById('wardList');
+            if (!list) {
+                list = document.createElement('datalist');
+                list.id = 'wardList';
+                document.body.appendChild(list);
+                wardInput.setAttribute('list', 'wardList');
+            }
+
+            list.innerHTML = wards.map(w => `<option value="${w.name}"></option>`).join('');
+            wardInput.placeholder = wards.length ? 'Chọn hoặc nhập phường / xã' : 'Nhập phường / xã';
+            if (wards.length && currentValue && !wards.some(w => w.name === currentValue)) {
+                wardInput.value = '';
+            }
+        }
+
+        provinceSelect.addEventListener('change', syncWardOptions);
+
+        const totalText = document.getElementById('grandTotalText');
+        const submitText = document.getElementById('submitText');
+        const insuranceCheck = document.getElementById('buyInsurance');
+        const insuranceLine = document.getElementById('insuranceLine');
+        const vnd = n => new Intl.NumberFormat('vi-VN').format(Math.max(0, Math.round(n))) + 'đ';
+
+        function updateTotals() {
+            const subtotal = parseFloat(totalText.dataset.subtotal) || 0;
+            const discount = parseFloat(totalText.dataset.discount) || 0;
+            const shipping = parseFloat(totalText.dataset.shipping) || 0;
+            const insurance = insuranceCheck.checked ? (parseFloat(totalText.dataset.insurance) || 0) : 0;
+            const total = Math.max(subtotal + shipping + insurance - discount, 0);
+
+            insuranceLine.style.display = insuranceCheck.checked ? '' : 'none';
+            totalText.textContent = vnd(total);
+            submitText.textContent = 'Thanh toán ' + vnd(total);
+        }
+
+        insuranceCheck.addEventListener('change', updateTotals);
+        updateTotals();
+
+        const phoneInput = document.getElementById('receiverPhone');
+        const phoneHint = document.getElementById('phoneHint');
+
+        function phoneIsValid() {
+            return /^(0|\+84)[0-9]{9}$/.test(phoneInput.value.replace(/[\s.\-]/g, ''));
+        }
+
+        phoneInput.addEventListener('blur', function () {
+            if (phoneInput.value && !phoneIsValid()) {
+                phoneHint.textContent = 'Số điện thoại phải gồm 10 chữ số, bắt đầu bằng 0.';
+                phoneHint.classList.add('error');
+            } else {
+                phoneHint.textContent = 'Dùng để shipper liên hệ khi giao hàng.';
+                phoneHint.classList.remove('error');
+            }
+        });
+
+        document.getElementById('checkoutForm').addEventListener('submit', function (e) {
+            if (!phoneIsValid()) {
+                e.preventDefault();
+                phoneInput.focus();
+                phoneHint.textContent = 'Số điện thoại phải gồm 10 chữ số, bắt đầu bằng 0.';
+                phoneHint.classList.add('error');
+                return;
+            }
+            const btn = document.getElementById('submitBtn');
+            setTimeout(() => { btn.disabled = true; submitText.textContent = 'Đang xử lý...'; }, 0);
+        });
+    </script>
 </body>
 </html>

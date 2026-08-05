@@ -19,11 +19,10 @@ namespace TechStoreWeb.Areas.Admin.Controllers
 
         private bool IsAuthorized()
         {
-            var role = HttpContext.Session.GetString("Role");
-            return role == "Admin" || role == "Employee";
+            return TechStoreWeb.Services.AdminPermissions.Can(
+                HttpContext, _context, TechStoreWeb.Services.AdminPermissions.Customers);
         }
 
-        // GET: Admin/Customers
         public async Task<IActionResult> Index()
         {
             if (!IsAuthorized()) return RedirectToAction("Login", "Account", new { area = "" });
@@ -36,7 +35,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View(customers);
         }
 
-        // GET: Admin/Customers/Details/5
         public async Task<IActionResult> Details(int? id)
         {
             if (!IsAuthorized()) return RedirectToAction("Login", "Account", new { area = "" });
@@ -48,7 +46,6 @@ namespace TechStoreWeb.Areas.Admin.Controllers
             return View(customer);
         }
 
-        // POST: Admin/Customers/ToggleLock/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ToggleLock(int id)

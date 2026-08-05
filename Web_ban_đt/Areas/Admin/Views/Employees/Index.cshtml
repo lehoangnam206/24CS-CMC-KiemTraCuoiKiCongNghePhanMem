@@ -23,7 +23,8 @@
                         <th class="border-0 px-4 py-3 text-muted fw-semibold">Tài khoản</th>
                         <th class="border-0 px-4 py-3 text-muted fw-semibold">Họ tên</th>
                         <th class="border-0 px-4 py-3 text-muted fw-semibold">Email</th>
-                        <th class="border-0 px-4 py-3 text-muted fw-semibold text-center">Quyền</th>
+                        <th class="border-0 px-4 py-3 text-muted fw-semibold text-center">Vai trò</th>
+                        <th class="border-0 px-4 py-3 text-muted fw-semibold text-nowrap" style="min-width: 210px;">Quyền được cấp</th>
                         <th class="border-0 px-4 py-3 text-muted fw-semibold text-center">Trạng thái</th>
                         <th class="border-0 px-4 py-3 text-muted fw-semibold text-end">Thao tác</th>
                     </tr>
@@ -52,8 +53,36 @@
                                     <span class="badge" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 6px 12px; border-radius: 20px;">Admin</span> 
                                 } else if (user.Role == "Employee") {
                                     <span class="badge" style="background: rgba(14, 165, 233, 0.1); color: #0ea5e9; padding: 6px 12px; border-radius: 20px;">Nhân viên</span> 
-                                } else { 
-                                    <span class="badge" style="background: #f1f5f9; color: #64748b; padding: 6px 12px; border-radius: 20px;">Khách hàng</span> 
+                                } else {
+                                    <span class="badge" style="background: #f1f5f9; color: #64748b; padding: 6px 12px; border-radius: 20px;">Khách hàng</span>
+                                }
+                            </td>
+                            <td class="px-4 py-3 border-bottom-0" style="border-bottom: 1px solid #f1f5f9 !important;">
+                                @if (user.Role == "Admin")
+                                {
+                                    <span class="text-muted small fst-italic">Toàn quyền</span>
+                                }
+                                else
+                                {
+                                    var granted = TechStoreWeb.Services.AdminPermissions.All
+                                        .Where(p => TechStoreWeb.Services.AdminPermissions.Contains(user.Permissions, p.Key))
+                                        .ToList();
+
+                                    if (granted.Count == 0)
+                                    {
+                                        <span class="text-muted small fst-italic text-nowrap">Chưa cấp quyền</span>
+                                    }
+                                    else
+                                    {
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @foreach (var p in granted)
+                                            {
+                                                <span class="badge" style="background: rgba(99, 102, 241, 0.1); color: #6366f1; padding: 5px 10px; border-radius: 20px; font-weight: 600;">
+                                                    <i class="bi @p.Icon me-1"></i>@p.Label.Replace("Quản lý ", "")
+                                                </span>
+                                            }
+                                        </div>
+                                    }
                                 }
                             </td>
                             <td class="px-4 py-3 border-bottom-0 text-center" style="border-bottom: 1px solid #f1f5f9 !important;">
