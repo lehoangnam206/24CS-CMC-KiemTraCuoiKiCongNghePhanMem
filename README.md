@@ -2,6 +2,11 @@
 
 Website bán điện thoại **TECHBLUE** — đồ án môn Công nghệ lập trình Web.
 
+# Link web demo: http://techblue.runasp.net/
+**tài khoản demo:
+admin
+TechBlue@2026#Admin**
+
 ## Công nghệ
 
 - ASP.NET Core MVC (.NET 10)
